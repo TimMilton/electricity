@@ -1,0 +1,71 @@
+# Шлюз «Електрооблік будинку» (Caddy).
+#
+# Публічний вхід ({$SITE_ADDRESS}):
+#   - вебзастосунок;
+#   - лише ті адреси Supabase, які потрібні браузеру:
+#       /auth/v1/verify…                 — посилання з листів (підтвердження пошти, зміна пароля);
+#       /storage/v1/object/sign/…        — перегляд квитанції за підписаним посиланням;
+#       /storage/v1/object/upload/sign/… — завантаження квитанції за підписаним токеном.
+#   База даних (PostgREST), адмін-API Auth і решта Storage назовні НЕ доступні:
+#   усі дані проходять через сервер застосунку з перевіркою прав.
+#
+# Внутрішній вхід (:8000, лише в мережі Docker) — повний API Supabase для сервера застосунку.
+#
+# SITE_ADDRESS:
+#   :80                    — локально, HTTP (за замовчуванням)
+#   elektro.example.com    — домен; Caddy сам отримає й оновлюватиме сертифікат HTTPS
+#                            (порти 80 і 443 мають бути відкриті назовні)
+
+(supabase_public) {
+	@verify path /auth/v1/verify /auth/v1/verify/*
+	handle @verify {
+		uri strip_prefix /auth/v1
+		reverse_proxy auth:9999
+	}
+
+	@storage_signed path /storage/v1/object/sign/* /storage/v1/object/upload/sign/*
+	handle @storage_signed {
+		uri strip_prefix /storage/v1
+		reverse_proxy storage:5000
+	}
+
+	@supabase_other path /auth/v1/* /rest/v1/* /storage/v1/* /pg/*
+	handle @supabase_other {
+		respond 404
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	import supabase_public
+
+	handle {
+		reverse_proxy app:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+:8000 {
+	handle_path /auth/v1/* {
+		reverse_proxy auth:9999
+	}
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+	handle_path /storage/v1/* {
+		reverse_proxy storage:5000
+	}
+	handle {
+		respond 404
+	}
+}

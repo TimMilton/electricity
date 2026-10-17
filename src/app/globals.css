@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/*
+  Візуальна мова: корпус і циферблат електролічильника.
+  casing  — сіро-блакитний корпус (фон)
+  face    — емалево-синя панель (головний колір)
+  signal  — жовтий індикатор (лише для «відкрито / зараз / дія»)
+*/
+:root {
+  --casing: #e9edf1;
+  --surface: #ffffff;
+  --ink: #17212c;
+  --ink-soft: #4f5b68;
+  --line: #cfd7df;
+  --face: #1f3a5f;
+  --face-strong: #142a47;
+  --face-soft: #dfe7f1;
+  --signal: #f2b705;
+  --signal-soft: #fdf3cf;
+  --ok: #1d7348;
+  --ok-soft: #dcefe4;
+  --warn: #8a5a00;
+  --warn-soft: #fbedc9;
+  --danger: #b3261e;
+  --danger-soft: #f9dedc;
+  --focus: #f2b705;
+}
+
+@theme inline {
+  --color-casing: var(--casing);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-face: var(--face);
+  --color-face-strong: var(--face-strong);
+  --color-face-soft: var(--face-soft);
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: "Segoe UI", "Roboto", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --radius-panel: 14px;
+  --radius-control: 10px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--casing);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Барабанний лічильник: кожна цифра — у власному віконці */
+.meter-drum {
+  display: inline-flex;
+  gap: 3px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--face-strong);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.meter-drum > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15em;
+  padding: 0.12em 0.08em;
+  border-radius: 4px;
+  background: linear-gradient(#0e1d31, #1c3355 50%, #0e1d31);
+  color: #fff;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.meter-drum > span.fraction {
+  background: linear-gradient(#5a1712, #8d2a22 50%, #5a1712);
+}
+.meter-drum > span.sep {
+  min-width: 0.4em;
+  background: transparent;
+  color: #9fb3cc;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="uk">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Зміна пароля</title></head>
+<body style="margin:0;background:#e9edf1;font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#17212c">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e9edf1;padding:24px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #cfd7df;border-radius:14px">
+        <tr><td style="background:#1f3a5f;border-radius:14px 14px 0 0;padding:18px 24px;color:#ffffff;font-size:18px;font-weight:700">Електрооблік будинку</td></tr>
+        <tr><td style="padding:24px">
+          <h1 style="margin:0 0 12px;font-size:22px">Зміна пароля</h1>
+          <p style="margin:0 0 20px;font-size:16px;line-height:1.5">Ми отримали запит на зміну пароля для {{ .Email }}. Посилання діє обмежений час.</p>
+          <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1f3a5f;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px">Встановити новий пароль</a></p>
+          <p style="margin:0;font-size:14px;line-height:1.5;color:#4f5b68">Якщо ви не запитували зміну пароля, проігноруйте цей лист — пароль залишиться без змін.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
