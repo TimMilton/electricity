@@ -8,7 +8,9 @@ import {
   recalculateReconciliationAction,
   reviewReconciliationAction,
   saveCommonReadingAction,
+  deleteCommonReadingAction,
 } from "@/app/actions/admin";
+import { Trash2 } from "lucide-react";
 import { Button, Field, Input, Notice, Select, Textarea } from "@/components/ui/controls";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useAction } from "@/components/admin/use-action";
@@ -19,12 +21,16 @@ export function CommonReadingForm({
   periodId,
   existing,
   suggestedPrevious,
+  depositUsed,
 }: {
   periodId: string;
   existing: { previous: string; current: string; notes: string | null } | null;
   suggestedPrevious: string | null;
+  /** Скільки вже використано з депозиту на розбіжність цього місяця */
+  depositUsed?: string | null;
 }) {
   const { run, pending, error, fieldErrors } = useAction();
+  const [confirm, setConfirm] = useState<string | null>(null);
   const [f, setF] = useState({
     previousReading: existing?.previous ?? suggestedPrevious ?? "",
     currentReading: existing?.current ?? "",
@@ -32,22 +38,42 @@ export function CommonReadingForm({
     reason: "",
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+
+  function save(acknowledge: boolean) {
+    return run(
+      () =>
+        saveCommonReadingAction({
+          periodId,
+          currentReading: f.currentReading,
+          previousReading: f.previousReading || undefined,
+          notes: f.notes || undefined,
+          reason: f.reason || undefined,
+          acknowledge,
+        }),
+      {
+        onConfirm: (msg) => setConfirm(msg),
+        onSuccess: () => {
+          setConfirm(null);
+          setF((s) => ({ ...s, reason: "" }));
+        },
+      },
+    );
+  }
+
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() =>
-          saveCommonReadingAction({
-            periodId,
-            currentReading: f.currentReading,
-            previousReading: f.previousReading || undefined,
-            notes: f.notes || undefined,
-            reason: f.reason || undefined,
-          }),
-        );
+        save(false);
       }}
     >
+      {existing && depositUsed && Number(depositUsed) > 0 && (
+        <Notice tone="warn">
+          За розбіжність цього місяця з депозиту вже використано {formatMoney(depositUsed)}. Виправити показник можна, але записи
+          депозиту не зміняться — за потреби зробіть коригування в розділі «Депозит».
+        </Notice>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Попередній показник"
@@ -65,15 +91,84 @@ export function CommonReadingForm({
         <Textarea id="cm-notes" value={f.notes} onChange={set("notes")} />
       </Field>
       {existing && (
-        <Field label="Причина виправлення (обов'язково)" htmlFor="cm-reason" error={fieldErrors.reason}>
+        <Field
+          label="Причина виправлення (обов'язково)"
+          htmlFor="cm-reason"
+          hint="Буде записано в журнал змін разом зі старими значеннями"
+          error={fieldErrors.reason}
+        >
           <Input id="cm-reason" value={f.reason} onChange={set("reason")} />
         </Field>
       )}
       {error && <Notice tone="danger">{error}</Notice>}
+      {confirm && (
+        <Notice tone="warn" title="Потрібне підтвердження">
+          <p>{confirm}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" disabled={pending} onClick={() => save(true)}>
+              Підтвердити виправлення
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setConfirm(null)}>
+              Скасувати
+            </Button>
+          </div>
+        </Notice>
+      )}
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Зберігаємо…" : existing ? "Зберегти виправлення" : "Зберегти показник"}
       </Button>
     </form>
+  );
+}
+
+export function DeleteCommonReadingButton({
+  periodId,
+  periodLabel,
+  depositUsed,
+}: {
+  periodId: string;
+  periodLabel: string;
+  depositUsed?: string | null;
+}) {
+  const { run } = useAction();
+  const [reason, setReason] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+  const blocked = Boolean(depositUsed && Number(depositUsed) > 0);
+
+  if (blocked) {
+    return (
+      <p className="text-sm text-ink-soft">
+        Видалити показник неможливо: за розбіжність цього місяця вже використано кошти депозиту. Виправте показник у формі вище.
+      </p>
+    );
+  }
+  return (
+    <ConfirmDialog
+      trigger={
+        <Button type="button" variant="outline" className="self-start text-danger">
+          <Trash2 aria-hidden />
+          Видалити показник
+        </Button>
+      }
+      title={`Видалити показник за ${periodLabel.toLowerCase()}?`}
+      description="Буде видалено показник загального лічильника і розрахунок розбіжності за цей місяць. Запис про видалення залишиться в журналі змін."
+      confirmLabel="Видалити"
+      tone="danger"
+      onConfirm={async () => {
+        if (reason.trim().length < 3) {
+          setLocalError("Вкажіть причину видалення");
+          return false;
+        }
+        setLocalError(null);
+        const ok = await run(() => deleteCommonReadingAction({ periodId, reason: reason.trim() }));
+        if (ok) setReason("");
+        return ok;
+      }}
+    >
+      <Field label="Причина (обов'язково)" htmlFor={`del-cm-${periodId}`} error={localError ?? undefined}>
+        <Input id={`del-cm-${periodId}`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Напр.: внесено не за той місяць" />
+      </Field>
+    </ConfirmDialog>
   );
 }
 

@@ -375,16 +375,36 @@ export async function saveCommonReadingAction(input: unknown): Promise<ActionRes
     if (!parsed.success) return zodToResult(parsed.error.issues);
     const d = parsed.data;
     const supabase = await admin();
-    const { error } = await supabase.rpc("admin_upsert_common_reading", {
+    const { data, error } = await supabase.rpc("admin_upsert_common_reading", {
       p_period_id: d.periodId,
       p_current_reading: d.currentReading,
       p_previous_reading: d.previousReading ?? null,
       p_notes: d.notes ?? null,
       p_reason: d.reason ?? null,
+      p_acknowledge: d.acknowledge,
     });
     if (error) return dbErrorToResult(error);
     refresh();
-    return { ok: true, message: "Показник загального лічильника збережено, розбіжність перераховано" };
+    return {
+      ok: true,
+      message: "Показник загального лічильника збережено, розбіжність перераховано",
+      warnings: (data as { warnings?: string[] } | null)?.warnings ?? [],
+    };
+  });
+}
+
+export async function deleteCommonReadingAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ periodId: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { error } = await supabase.rpc("admin_delete_common_reading", {
+      p_period_id: parsed.data.periodId,
+      p_reason: parsed.data.reason,
+    });
+    if (error) return dbErrorToResult(error);
+    refresh();
+    return { ok: true, message: "Показник загального лічильника видалено" };
   });
 }
 

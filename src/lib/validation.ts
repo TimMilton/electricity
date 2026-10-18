@@ -157,6 +157,7 @@ export const commonReadingSchema = z.object({
   previousReading: readingValue("Попередній показник").optional(),
   notes: optionalText(1000),
   reason: optionalText(1000),
+  acknowledge: z.boolean().optional().default(false),
 });
 
 export const depositOperationSchema = z.object({

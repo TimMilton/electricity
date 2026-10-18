@@ -149,7 +149,10 @@ export function HouseSummaryPanel({
                   <Row label="Баланс депозиту будинку" value={formatMoney(summary.deposit_balance)} />
                   {after !== null &&
                     (after >= 0n ? (
-                      <Row label="Залишиться після покриття боргу" value={formatMoney(after)} />
+                      <Row
+                        label={summary.deposit_already_applied ? "Залишиться після покриття решти боргу" : "Залишиться після покриття боргу"}
+                        value={formatMoney(after)}
+                      />
                     ) : (
                       <Row label="Не вистачає на депозиті" value={formatMoney(-after)} className="[&_dd]:text-danger" />
                     ))}
@@ -173,7 +176,11 @@ export function HouseSummaryPanel({
           </Notice>
         )}
         {summary.deposit_already_applied && (
-          <Notice tone="ok">Різницю за цей місяць уже враховано: адміністратор покрив її з депозиту.</Notice>
+          <Notice tone="ok">
+            Адміністратор уже покрив з депозиту
+            {summary.deposit_used != null ? ` ${formatMoney(summary.deposit_used)}` : " частину різниці"} за цей місяць
+            {after !== null ? "; решту боргу показано вище." : "."}
+          </Notice>
         )}
       </div>
 

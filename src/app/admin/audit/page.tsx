@@ -21,6 +21,8 @@ const ACTION_LABEL: Record<string, string> = {
   "deposit.refund": "Повернення з депозиту",
   "common_reading.create": "Внесено показник загального лічильника",
   "common_reading.update": "Змінено показник загального лічильника",
+  "common_reading.delete": "Видалено показник загального лічильника",
+  "reconciliation.delete": "Видалено розрахунок розбіжності",
   "reconciliation.calculate": "Розраховано розбіжність",
   "reconciliation.review": "Розбіжність перевірено",
   "reconciliation.close": "Розбіжність закрито",

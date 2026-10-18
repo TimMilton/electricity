@@ -261,5 +261,7 @@ export type HouseSummary = {
   deposit_public: boolean;
   deposit_balance: Num | null;
   deposit_already_applied?: boolean;
+  /** Скільки вже використано з депозиту на розбіжність цього місяця */
+  deposit_used?: Num | null;
   deposit_after?: Num | null;
 };
