@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { AUTH_COOKIE_NAME, supabaseAnonKeyOrNull, supabasePublicUrl, supabaseUrlOrNull } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/auth", "/setup-required", "/preview"];
+const PUBLIC_PATHS = ["/login", "/register", "/auth", "/setup-required", "/preview"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -96,5 +96,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|icon.svg|robots.txt|email-templates|api/cron|api/health).*)"],
+  matcher: ["/((?!_next/|favicon.ico|icon.svg|robots.txt|api/cron|api/health).*)"],
 };

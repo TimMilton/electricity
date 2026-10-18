@@ -7,7 +7,6 @@ import {
   generateCodeAction,
   generateCodesBulkAction,
   importApartmentsAction,
-  revokeCodeAction,
   saveApartmentAction,
   setUserActiveAction,
   setUserRoleAction,
@@ -101,29 +100,52 @@ export function ApartmentEditor({ apartment }: { apartment?: ApartmentRow }) {
   );
 }
 
-function CodeReveal({ code }: { code: string }) {
+function CodeReveal({ code, number }: { code: string; number: string }) {
   return (
     <div className="flex flex-col gap-3">
-      <Notice tone="signal" title="Код показується лише один раз">Передайте його мешканцю особисто. У базі зберігається лише захищений хеш.</Notice>
-      <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-face px-4 py-3 text-white">
-        <span className="font-display tabular text-2xl tracking-wider">{code}</span>
-        <Button
-          variant="signal"
-          size="sm"
-          onClick={() => navigator.clipboard.writeText(code).then(() => toast.success("Скопійовано"))}
-        >
-          <Copy aria-hidden />
-          Копіювати
-        </Button>
-      </div>
+      <Notice tone="signal" title="Запишіть або скопіюйте код зараз">
+        Код показується лише один раз. Передайте його мешканцю квартири №{number} особисто. Код діє постійно, поки ви не зміните
+        його.
+      </Notice>
+      <dl className="rounded-[var(--radius-control)] bg-face px-4 py-3 text-white">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-sm text-white/70">Номер квартири</dt>
+          <dd className="font-display text-xl">{number}</dd>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <dt className="text-sm text-white/70">Код доступу</dt>
+          <dd className="font-display tabular text-2xl tracking-wider">{code}</dd>
+        </div>
+      </dl>
+      <Button
+        variant="signal"
+        className="self-start"
+        onClick={() =>
+          navigator.clipboard
+            .writeText(`Квартира: ${number}\nКод доступу: ${code}`)
+            .then(() => toast.success("Скопійовано"))
+        }
+      >
+        <Copy aria-hidden />
+        Копіювати
+      </Button>
     </div>
   );
 }
 
-export function CodeButton({ apartmentId, number, hasPrimary, hasCode }: { apartmentId: string; number: string; hasPrimary: boolean; hasCode: boolean }) {
+export function CodeButton({
+  apartmentId,
+  number,
+  hasAccess,
+  codeSetAt,
+}: {
+  apartmentId: string;
+  number: string;
+  hasAccess: boolean;
+  codeSetAt: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState<string | null>(null);
-  const [additional, setAdditional] = useState(false);
   const { run, pending, error } = useAction();
   return (
     <Dialog
@@ -134,41 +156,35 @@ export function CodeButton({ apartmentId, number, hasPrimary, hasCode }: { apart
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant={hasAccess ? "outline" : "primary"} size="sm">
           <KeyRound aria-hidden />
-          Код
+          {hasAccess ? "Змінити код" : "Видати код"}
         </Button>
       </DialogTrigger>
-      <DialogContent title={`Код реєстрації, кв. №${number}`}>
+      <DialogContent title={`Код доступу, кв. №${number}`}>
         {code ? (
-          <CodeReveal code={code} />
+          <CodeReveal code={code} number={number} />
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="text-[15px] text-ink-soft">
-              Новий код замінює попередній і знімає блокування після невдалих спроб.
-              {hasCode && " Для квартири вже є невикористаний код."}
+            <p className="text-[15px]">
+              Мешканець входить за номером квартири <b>{number}</b> і кодом доступу.
             </p>
-            {hasPrimary && (
-              <Checkbox
-                label="Дозволити додатковий обліковий запис для цієї квартири"
-                checked={additional}
-                onChange={(e) => setAdditional(e.target.checked)}
-              />
+            {hasAccess ? (
+              <Notice tone="warn">
+                Квартира вже має код{codeSetAt ? ` (виданий ${new Date(codeSetAt).toLocaleDateString("uk-UA")})` : ""}. Новий код
+                замінить його — старий одразу перестане діяти. Робіть це, якщо код загубили або ним міг скористатися хтось інший.
+              </Notice>
+            ) : (
+              <p className="text-[15px] text-ink-soft">Код видається один раз і діє постійно. Змінити його можете лише ви.</p>
             )}
             {error && <Notice tone="danger">{error}</Notice>}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={pending || (hasPrimary && !additional)}
-                onClick={() => run(() => generateCodeAction(apartmentId, additional), { onSuccess: (r) => setCode(r.data!.code) })}
-              >
-                Згенерувати код
-              </Button>
-              {hasCode && (
-                <Button variant="outline" disabled={pending} onClick={() => run(() => revokeCodeAction(apartmentId), { onSuccess: () => setOpen(false) })}>
-                  Скасувати чинний код
-                </Button>
-              )}
-            </div>
+            <Button
+              className="self-start"
+              disabled={pending}
+              onClick={() => run(() => generateCodeAction(apartmentId), { onSuccess: (r) => setCode(r.data!.code) })}
+            >
+              {pending ? "Зачекайте…" : hasAccess ? "Згенерувати новий код" : "Згенерувати код"}
+            </Button>
           </div>
         )}
       </DialogContent>
@@ -187,31 +203,43 @@ function downloadCsv(name: string, rows: string[][]) {
 }
 
 export function BulkCodes() {
-  const [codes, setCodes] = useState<{ apartment_number: string; resident_surname: string; code: string }[] | null>(null);
+  const [result, setResult] = useState<{ codes: { apartment_number: string; resident_surname: string; code: string }[]; failed: string[] } | null>(null);
   const { run, pending } = useAction();
   return (
     <div className="flex flex-col gap-3">
       <ConfirmDialog
-        trigger={<Button variant="outline">Коди для всіх незареєстрованих</Button>}
-        title="Згенерувати коди для всіх незареєстрованих квартир?"
-        description="Попередні невикористані коди цих квартир перестануть діяти. Нові коди буде показано лише один раз."
-        confirmLabel="Згенерувати"
-        onConfirm={() => run(() => generateCodesBulkAction(), { onSuccess: (r) => setCodes(r.data!.codes) })}
+        trigger={<Button variant="outline">Видати коди всім квартирам без доступу</Button>}
+        title="Видати коди всім квартирам без доступу?"
+        description="Коди отримають лише активні квартири, які ще не мають коду. Наявні коди не зміняться. Нові коди буде показано один раз."
+        confirmLabel="Видати коди"
+        onConfirm={() => run(() => generateCodesBulkAction(), { onSuccess: (r) => setResult(r.data!) })}
       />
-      {pending && <p className="text-ink-soft">Генеруємо…</p>}
-      {codes && (
-        <Notice tone="signal" title={`Згенеровано кодів: ${codes.length}`}>
+      {pending && <p className="text-ink-soft">Видаємо коди…</p>}
+      {result && result.codes.length > 0 && (
+        <Notice tone="signal" title={`Видано кодів: ${result.codes.length}`}>
           <p>Завантажте файл зараз — повторно переглянути коди неможливо.</p>
           <Button
             className="mt-2"
             variant="primary"
             size="sm"
             onClick={() =>
-              downloadCsv("kody-reiestratsii.csv", [["Квартира", "Прізвище", "Код"], ...codes.map((c) => [c.apartment_number, c.resident_surname, c.code])])
+              downloadCsv("kody-dostupu.csv", [
+                ["Квартира", "Прізвище", "Код доступу"],
+                ...result.codes.map((c) => [c.apartment_number, c.resident_surname, c.code]),
+              ])
             }
           >
             Завантажити CSV з кодами
           </Button>
+        </Notice>
+      )}
+      {result && result.failed.length > 0 && (
+        <Notice tone="danger" title="Не вдалося видати коди деяким квартирам">
+          <ul className="list-disc pl-5">
+            {result.failed.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
         </Notice>
       )}
     </div>

@@ -84,29 +84,23 @@ const passwordSchema = z
   .regex(/[A-Za-zА-Яа-яІіЇїЄєҐґ]/, "Пароль має містити літери")
   .regex(/\d/, "Пароль має містити цифри");
 
-export const registrationSchema = z
+
+/** Вхід: номер квартири + код доступу, або пошта адміністратора + пароль. */
+export const loginSchema = z
   .object({
-    apartmentNumber: z.string().trim().min(1, "Вкажіть номер квартири").max(20),
-    surname: z.string().trim().min(2, "Вкажіть прізвище").max(100),
-    email: z.email("Некоректна електронна пошта").trim().toLowerCase().max(254),
-    password: passwordSchema,
-    passwordConfirm: z.string(),
-    code: z.string().trim().max(32).optional().default(""),
+    login: z.string().trim().min(1, "Вкажіть номер квартири").max(254),
+    secret: z.string().min(1, "Вкажіть код доступу").max(128),
   })
-  .refine((d) => d.password === d.passwordConfirm, {
-    path: ["passwordConfirm"],
-    message: "Паролі не збігаються",
+  .superRefine((d, ctx) => {
+    if (d.login.includes("@")) {
+      if (!z.email().safeParse(d.login).success) {
+        ctx.addIssue({ code: "custom", path: ["login"], message: "Некоректна електронна пошта" });
+      }
+    } else if (d.login.length > 20) {
+      ctx.addIssue({ code: "custom", path: ["login"], message: "Некоректний номер квартири" });
+    }
   });
-export type RegistrationInput = z.input<typeof registrationSchema>;
 
-export const loginSchema = z.object({
-  email: z.email("Некоректна електронна пошта").trim().toLowerCase(),
-  password: z.string().min(1, "Вкажіть пароль"),
-});
-
-export const forgotPasswordSchema = z.object({
-  email: z.email("Некоректна електронна пошта").trim().toLowerCase(),
-});
 
 export const resetPasswordSchema = z
   .object({ password: passwordSchema, passwordConfirm: z.string() })

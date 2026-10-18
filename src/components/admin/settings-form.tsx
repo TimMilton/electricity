@@ -111,24 +111,6 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
         </div>
       </Panel>
 
-      <Panel title="Реєстрація">
-        <div className="flex flex-col gap-3">
-          <Checkbox label="Самостійна реєстрація відкрита" {...bool("registration_open")} />
-          <Checkbox label="Вимагати одноразовий код квартири (рекомендовано)" {...bool("registration_code_required")} />
-        </div>
-        {!s.registration_code_required && (
-          <Notice tone="warn" className="mt-3">Без коду квартиру підтверджують лише номер і прізвище — ці дані можуть знати сторонні.</Notice>
-        )}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Спроб до блокування" htmlFor="st-ma">
-            <Input id="st-ma" min={1} max={50} {...num("registration_code_max_attempts")} />
-          </Field>
-          <Field label="Тривалість блокування, хв" htmlFor="st-lm">
-            <Input id="st-lm" min={1} {...num("registration_lockout_minutes")} />
-          </Field>
-        </div>
-      </Panel>
-
       <Panel title="Депозит">
         <Checkbox label="Показувати мешканцям баланс і використання депозиту будинку" {...bool("show_deposit_balance_to_residents")} />
         <Field label="Пояснення для мешканців" htmlFor="st-note" className="mt-4">

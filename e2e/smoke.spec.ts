@@ -21,36 +21,28 @@ test.describe("Публічні сторінки та захист маршру�
     expect([401, 503]).toContain(cron.status());
   });
 
-  test("форма входу валідує дані до звернення до сервера автентифікації", async ({ page }) => {
+  test("форма входу: номер квартири і код доступу, без пошти й реєстрації", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Електронна пошта").fill("не-пошта");
-    await page.getByLabel("Пароль").fill("x");
+    await expect(page.getByLabel("Номер квартири")).toBeVisible();
+    await expect(page.getByLabel("Код доступу")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Зареєструватися|Забули пароль/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Увійти" }).click();
+    await expect(page.getByText("Вкажіть номер квартири")).toBeVisible();
+    await page.getByLabel("Номер квартири").fill("admin@");
+    await page.getByLabel("Код доступу").fill("x");
     await page.getByRole("button", { name: "Увійти" }).click();
     await expect(page.getByText("Некоректна електронна пошта")).toBeVisible();
   });
 
-  test("реєстрація: поля форми та перевірка пароля", async ({ page }) => {
+  test("старі адреси реєстрації та відновлення пароля ведуть на вхід", async ({ page }) => {
     await page.goto("/register");
-    await expect(page.getByRole("heading", { name: "Реєстрація мешканця" })).toBeVisible();
-    await page.getByLabel("Квартира №").fill("12");
-    await page.getByLabel("Прізвище").fill("Петренко");
-    await page.getByLabel(/Код підтвердження/).fill("ABCDE-12345");
-    await page.getByLabel("Електронна пошта").fill("resident@example.com");
-    await page.getByLabel("Пароль", { exact: true }).fill("password1");
-    await page.getByLabel("Підтвердження пароля").fill("password2");
-    await page.getByRole("button", { name: "Зареєструватися" }).click();
-    await expect(page.getByText("Паролі не збігаються")).toBeVisible();
-    await expect(page.getByText(/зверніться до адміністратора/i)).toBeVisible();
-  });
-
-  test("відновлення пароля", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByRole("link", { name: "Забули пароль?" }).click();
-    await expect(page.getByRole("heading", { name: "Відновлення пароля" })).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+    await page.goto("/forgot-password");
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("30. сторінки адаптуються до смартфона без горизонтальної прокрутки", async ({ page }) => {
-    for (const path of ["/login", "/register", "/forgot-password"]) {
+    for (const path of ["/login"]) {
       await page.goto(path);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, path).toBeLessThanOrEqual(0);
@@ -74,11 +66,5 @@ test.describe("Публічні сторінки та захист маршру�
     expect(await ok.json()).toEqual({ ok: true });
     const deep = await request.get("/api/health?deep=1");
     expect(deep.status()).toBe(503);
-  });
-
-  test("шаблони листів доступні без входу (їх читає сервіс Auth)", async ({ request }) => {
-    const res = await request.get("/email-templates/confirmation.html", { maxRedirects: 0 });
-    expect(res.status()).toBe(200);
-    expect(await res.text()).toContain("{{ .ConfirmationURL }}");
   });
 });

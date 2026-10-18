@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireSession, getActingContext } from "@/lib/auth";
 import { signOutAction } from "@/app/actions/auth";
 import { Button, PageHeader, Panel, Row } from "@/components/ui/controls";
-import { ResetPasswordForm } from "@/components/auth-forms";
+import { ChangePasswordForm } from "@/components/auth-forms";
 
 export const metadata: Metadata = { title: "Профіль" };
 
@@ -16,7 +16,7 @@ export default async function ProfilePage() {
         <Panel title="Обліковий запис">
           <dl>
             <Row label="Прізвище" value={session.profile.surname} />
-            <Row label="Електронна пошта" value={session.email ?? "—"} />
+            {session.isAdmin && <Row label="Електронна пошта" value={session.email ?? "—"} />}
             <Row label="Роль" value={session.isAdmin ? "Адміністратор" : "Мешканець"} />
             {ctx && !ctx.viewAs && <Row label="Квартира" value={`№${ctx.apartment.apartment_number}`} />}
           </dl>
@@ -27,9 +27,18 @@ export default async function ProfilePage() {
             <Button type="submit" variant="outline">Вийти з облікового запису</Button>
           </form>
         </Panel>
-        <Panel title="Змінити пароль">
-          <ResetPasswordForm />
-        </Panel>
+        {session.isAdmin ? (
+          <Panel title="Змінити пароль">
+            <ChangePasswordForm />
+          </Panel>
+        ) : (
+          <Panel title="Код доступу">
+            <p className="text-[15px]">
+              Ви входите за номером квартири та кодом доступу. Код діє постійно. Якщо він загубився або ним міг скористатися
+              хтось інший, попросіть адміністратора будинку видати новий — старий одразу перестане діяти.
+            </p>
+          </Panel>
+        )}
       </div>
     </>
   );

@@ -7,7 +7,6 @@ import { Button, EmptyState, PageHeader, Panel } from "@/components/ui/controls"
 import { Tag } from "@/components/ui/status";
 import { ApartmentEditor, BulkCodes, CodeButton, ImportApartments, UserActions } from "@/components/admin/apartments";
 import { enterViewAsAction } from "@/app/actions/admin";
-import type { RegistrationStatus } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Квартири та мешканці" };
 
@@ -16,7 +15,7 @@ type AptRow = {
   apartment_number: string;
   resident_surname: string;
   is_active: boolean;
-  registration_status: RegistrationStatus;
+  registration_status: string;
   has_active_code: boolean;
   code_created_at: string | null;
   is_locked: boolean;
@@ -39,11 +38,6 @@ type UserRow = {
   email_confirmed: boolean;
 };
 
-const REG_LABEL: Record<RegistrationStatus, { text: string; tone: "ok" | "neutral" | "signal" }> = {
-  registered: { text: "Зареєстровано", tone: "ok" },
-  not_registered: { text: "Не зареєстровано", tone: "neutral" },
-  additional_allowed: { text: "Дозволено додатковий акаунт", tone: "signal" },
-};
 
 export default async function AdminApartmentsPage() {
   const session = await requireAdmin();
@@ -66,8 +60,7 @@ export default async function AdminApartmentsPage() {
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Кв.</th>
                     <th className="px-3 py-2.5 font-medium">Прізвище</th>
-                    <th className="px-3 py-2.5 font-medium">Реєстрація</th>
-                    <th className="px-3 py-2.5 font-medium">Код</th>
+                    <th className="px-3 py-2.5 font-medium">Доступ</th>
                     <th className="px-3 py-2.5 text-right font-medium">Початковий показник</th>
                     <th className="px-3 py-2.5 font-medium"><span className="sr-only">Дії</span></th>
                   </tr>
@@ -81,16 +74,13 @@ export default async function AdminApartmentsPage() {
                         {!a.is_active && <span className="ml-2"><Tag>Неактивна</Tag></span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        <Tag tone={REG_LABEL[a.registration_status].tone}>{REG_LABEL[a.registration_status].text}</Tag>
-                        {a.accounts_count > 1 && <span className="ml-1 text-sm text-ink-soft">акаунтів: {a.accounts_count}</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-sm">
-                        {a.is_locked ? (
-                          <Tag tone="danger">Заблоковано</Tag>
-                        ) : a.has_active_code ? (
-                          <span className="text-ink-soft">Видано {formatDateTime(a.code_created_at)}</span>
+                        {a.accounts_count > 0 ? (
+                          <span className="flex flex-wrap items-center gap-2">
+                            <Tag tone="ok">Є код доступу</Tag>
+                            {a.code_created_at && <span className="text-sm text-ink-soft">з {formatDateTime(a.code_created_at)}</span>}
+                          </span>
                         ) : (
-                          <span className="text-ink-soft">—</span>
+                          <Tag tone="neutral">Немає коду</Tag>
                         )}
                       </td>
                       <td className="tabular px-3 py-2.5 text-right">{a.initial_reading === null ? "—" : formatReading(a.initial_reading)}</td>
@@ -100,8 +90,8 @@ export default async function AdminApartmentsPage() {
                             <CodeButton
                               apartmentId={a.id}
                               number={a.apartment_number}
-                              hasPrimary={a.registration_status === "registered" || a.accounts_count > 0}
-                              hasCode={a.has_active_code}
+                              hasAccess={a.accounts_count > 0}
+                              codeSetAt={a.code_created_at}
                             />
                           )}
                           <form action={enterViewAsAction}>
@@ -123,7 +113,7 @@ export default async function AdminApartmentsPage() {
           <Panel title="Імпорт списку квартир">
             <ImportApartments />
           </Panel>
-          <Panel title="Коди підтвердження" description="Одноразовий код потрібен мешканцю для самостійної реєстрації.">
+          <Panel title="Коди доступу" description="Мешканець входить за номером квартири та кодом. Код діє постійно; змінити його можна кнопкою «Змінити код» у таблиці.">
             <BulkCodes />
           </Panel>
         </div>

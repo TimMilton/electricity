@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseApartmentsCsv, readingSubmissionSchema, registrationSchema, settingsSchema } from "@/lib/validation";
+import { loginSchema, parseApartmentsCsv, readingSubmissionSchema, settingsSchema } from "@/lib/validation";
+import { apartmentLoginEmail, generateAccessCode, normalizeAccessCode } from "@/lib/access-code";
+import { randomBytes } from "node:crypto";
 import { sanitizeFilename, sniffMime, validateReceiptFile } from "@/lib/files";
 import { csvCell, toCsv } from "@/lib/csv";
 import { kyivLocalToIso, toKyivLocalInput } from "@/lib/utils";
@@ -28,18 +30,23 @@ describe("Валідація показників і внесків (Zod)", () =
     }
   });
 
-  it("реєстрація: пароль, підтвердження, пошта", () => {
-    const ok = registrationSchema.safeParse({
-      apartmentNumber: "12", surname: "Петренко", email: "Test@Example.com", password: "secret123", passwordConfirm: "secret123", code: "ABCDE-12345",
-    });
-    expect(ok.success).toBe(true);
-    if (ok.success) expect(ok.data.email).toBe("test@example.com");
-    const mismatch = registrationSchema.safeParse({
-      apartmentNumber: "12", surname: "Петренко", email: "a@b.ua", password: "secret123", passwordConfirm: "secret124",
-    });
-    expect(mismatch.success).toBe(false);
-    const weak = registrationSchema.safeParse({ apartmentNumber: "12", surname: "П", email: "a@b.ua", password: "short", passwordConfirm: "short" });
-    expect(weak.success).toBe(false);
+  it("вхід: номер квартири або пошта адміністратора", () => {
+    expect(loginSchema.safeParse({ login: " 12 ", secret: "abcde-12345" })).toMatchObject({ success: true, data: { login: "12" } });
+    expect(loginSchema.safeParse({ login: "admin@example.com", secret: "x" }).success).toBe(true);
+    expect(loginSchema.safeParse({ login: "admin@", secret: "x" }).success).toBe(false);
+    expect(loginSchema.safeParse({ login: "", secret: "x" }).success).toBe(false);
+    expect(loginSchema.safeParse({ login: "12", secret: "" }).success).toBe(false);
+  });
+
+  it("коди доступу: формат, нормалізація, технічна адреса", () => {
+    const codes = new Set(Array.from({ length: 200 }, () => generateAccessCode((n) => randomBytes(n))));
+    expect(codes.size).toBe(200);
+    for (const c of codes) expect(c).toMatch(/^[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$/);
+    expect(normalizeAccessCode(" abcde - 12345 ")).toBe("ABCDE12345");
+    expect(normalizeAccessCode("ABCDE-12345")).toBe(normalizeAccessCode("abcde12345"));
+    expect(apartmentLoginEmail("11111111-1111-4111-8111-111111111111")).toBe(
+      "apt-11111111-1111-4111-8111-111111111111@kvartyry.elektrooblik.local",
+    );
   });
 
   it("налаштування: посилання на конверт лише https", () => {

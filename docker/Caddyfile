@@ -3,7 +3,6 @@
 # Публічний вхід ({$SITE_ADDRESS}):
 #   - вебзастосунок;
 #   - лише ті адреси Supabase, які потрібні браузеру:
-#       /auth/v1/verify…                 — посилання з листів (підтвердження пошти, зміна пароля);
 #       /storage/v1/object/sign/…        — перегляд квитанції за підписаним посиланням;
 #       /storage/v1/object/upload/sign/… — завантаження квитанції за підписаним токеном.
 #   База даних (PostgREST), адмін-API Auth і решта Storage назовні НЕ доступні:
@@ -17,12 +16,6 @@
 #                            (порти 80 і 443 мають бути відкриті назовні)
 
 (supabase_public) {
-	@verify path /auth/v1/verify /auth/v1/verify/*
-	handle @verify {
-		uri strip_prefix /auth/v1
-		reverse_proxy auth:9999
-	}
-
 	@storage_signed path /storage/v1/object/sign/* /storage/v1/object/upload/sign/*
 	handle @storage_signed {
 		uri strip_prefix /storage/v1

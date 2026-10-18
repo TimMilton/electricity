@@ -13,7 +13,6 @@ const anonKey = process.env.SUPABASE_ANON_KEY!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const run = randomUUID().slice(0, 6);
 const adminEmail = `e2e-admin-${run}@example.test`;
-const residentEmail = `e2e-resident-${run}@example.test`;
 const password = "E2eTest-12345";
 const aptNumber = `E${run}`;
 const surname = "Тестовий";
@@ -25,6 +24,14 @@ test.describe.configure({ mode: "serial" });
 
 let code = "";
 
+async function loginAsAdmin(page: import("@playwright/test").Page) {
+  await page.goto("/login");
+  await page.getByLabel("Номер квартири").fill(adminEmail);
+  await page.getByLabel("Код доступу").fill(password);
+  await page.getByRole("button", { name: "Увійти" }).click();
+  await page.waitForURL(/\/admin/);
+}
+
 test.beforeAll(async () => {
   const service = createClient(url, serviceKey, { auth: { persistSession: false } });
   const { data: u, error } = await service.auth.admin.createUser({ email: adminEmail, password, email_confirm: true });
@@ -33,12 +40,10 @@ test.beforeAll(async () => {
 
   const admin = createClient(url, anonKey, { auth: { persistSession: false } });
   await admin.auth.signInWithPassword({ email: adminEmail, password });
-  const { data: apt } = await admin.rpc("admin_upsert_apartment", {
+  await admin.rpc("admin_upsert_apartment", {
     p_id: null, p_apartment_number: aptNumber, p_resident_surname: surname, p_is_active: true,
     p_initial_reading: 1000, p_initial_reading_date: null, p_reason: "e2e",
   });
-  const { data: c } = await admin.rpc("admin_generate_registration_code", { p_apartment_id: (apt as { id: string }).id, p_allow_additional: false });
-  code = String(c);
   // тариф і відкритий період (якщо ще немає)
   await admin.rpc("admin_set_tariff", { p_rate: 4.32, p_valid_from: "2000-01-01", p_reason: "e2e" }).then(() => undefined);
   const now = Date.now();
@@ -51,27 +56,29 @@ test.beforeAll(async () => {
   await service.from("app_settings").update({ envelope_url: "https://example.com/envelope" }).eq("id", true);
 });
 
-test("1–4, 9–15. мешканець: реєстрація з кодом, показники, внески, оплата з квитанцією", async ({ page, context }) => {
-  await page.goto("/register");
-  await page.getByLabel("Квартира №").fill(aptNumber);
-  await page.getByLabel("Прізвище").fill(surname);
-  await page.getByLabel(/Код підтвердження/).fill(code);
-  await page.getByLabel("Електронна пошта").fill(residentEmail);
-  await page.getByLabel("Пароль", { exact: true }).fill(password);
-  await page.getByLabel("Підтвердження пароля").fill(password);
-  await page.getByRole("button", { name: "Зареєструватися" }).click();
+test("адміністратор видає код доступу квартирі", async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto("/admin/apartments");
+  const row = page.getByRole("row", { name: new RegExp(aptNumber) });
+  await row.getByRole("button", { name: "Видати код" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Згенерувати код" }).click();
+  const codeText = await page.getByRole("dialog").getByText(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/).innerText();
+  code = codeText.trim();
+  expect(code).toMatch(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/);
+});
 
-  // Якщо підтвердження пошти увімкнене — підтверджуємо через сервісний ключ і входимо
-  if (!(await page.waitForURL(/\/home/, { timeout: 5000 }).then(() => true, () => false))) {
-    const service = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const { data } = await service.auth.admin.listUsers();
-    const user = data.users.find((u) => u.email === residentEmail)!;
-    await service.auth.admin.updateUserById(user.id, { email_confirm: true });
-    await page.goto("/login");
-    await page.getByLabel("Електронна пошта").fill(residentEmail);
-    await page.getByLabel("Пароль").fill(password);
-    await page.getByRole("button", { name: "Увійти" }).click();
-  }
+test("1–4, 9–15. мешканець: вхід за номером квартири й кодом, показники, внески, оплата з квитанцією", async ({ page, context }) => {
+  // невірний код — відмова без розкриття подробиць
+  await page.goto("/login");
+  await page.getByLabel("Номер квартири").fill(aptNumber);
+  await page.getByLabel("Код доступу").fill("AAAAA-BBBBB");
+  await page.getByRole("button", { name: "Увійти" }).click();
+  await expect(page.getByText(/Невірний номер квартири або код доступу/)).toBeVisible();
+
+  // правильний код, у нижньому регістрі й без дефіса — теж приймається
+  await page.getByLabel("Номер квартири").fill(aptNumber.toLowerCase());
+  await page.getByLabel("Код доступу").fill(code.replace("-", "").toLowerCase());
+  await page.getByRole("button", { name: "Увійти" }).click();
   await expect(page.getByRole("heading", { name: `Квартира №${aptNumber}` })).toBeVisible();
 
   await page.getByRole("link", { name: "Внести показники" }).click();
@@ -99,11 +106,7 @@ test("1–4, 9–15. мешканець: реєстрація з кодом, п�
 });
 
 test("15, 20. адміністратор підтверджує оплату; депозит поповнюється один раз", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Електронна пошта").fill(adminEmail);
-  await page.getByLabel("Пароль").fill(password);
-  await page.getByRole("button", { name: "Увійти" }).click();
-  await page.waitForURL(/\/admin/);
+  await loginAsAdmin(page);
   await page.goto("/admin/payments?status=pending_review&q=" + encodeURIComponent(aptNumber));
   await page.getByRole("link", { name: "Перевірити" }).first().click();
   await expect(page.getByText("kvytantsiia.pdf")).toBeVisible();

@@ -22,6 +22,8 @@ import {
 } from "@/lib/validation";
 import { kyivLocalToIso } from "@/lib/utils";
 import { RECEIPTS_BUCKET } from "@/lib/receipts";
+import { randomBytes } from "node:crypto";
+import { apartmentLoginEmail, generateAccessCode, normalizeAccessCode } from "@/lib/access-code";
 import type { ActionResult } from "@/lib/types";
 
 const uuid = z.uuid();
@@ -136,38 +138,93 @@ export async function importApartmentsAction(csv: string): Promise<ActionResult<
   });
 }
 
-export async function generateCodeAction(apartmentId: string, allowAdditional: boolean): Promise<ActionResult<{ code: string }>> {
-  return guard(async () => {
-    if (!uuid.safeParse(apartmentId).success) return { ok: false, error: "Некоректна квартира" };
-    const supabase = await admin();
-    const { data, error } = await supabase.rpc("admin_generate_registration_code", {
-      p_apartment_id: apartmentId,
-      p_allow_additional: !!allowAdditional,
+/**
+ * Видати або змінити код доступу квартири.
+ * Код — це пароль облікового запису квартири в Supabase Auth: запис
+ * створюється (без пошти й без листів) або отримує новий пароль.
+ * Попередній код одразу перестає діяти.
+ */
+async function issueAccessCode(
+  supabase: Awaited<ReturnType<typeof admin>>,
+  apartmentId: string,
+): Promise<ActionResult<{ code: string }>> {
+  const { data: apt } = await supabase
+    .from("apartments")
+    .select("id, apartment_number, is_active")
+    .eq("id", apartmentId)
+    .maybeSingle<{ id: string; apartment_number: string; is_active: boolean }>();
+  if (!apt) return { ok: false, error: "Квартиру не знайдено" };
+  if (!apt.is_active) return { ok: false, error: "Квартира неактивна" };
+
+  const { data: existingId, error: lookupError } = await supabase.rpc("admin_apartment_account", { p_apartment_id: apartmentId });
+  if (lookupError) return dbErrorToResult(lookupError);
+
+  const code = generateAccessCode((n) => new Uint8Array(randomBytes(n)));
+  const password = normalizeAccessCode(code);
+  const service = createServiceClient();
+  let userId = (existingId as string | null) ?? null;
+
+  if (userId) {
+    const { error } = await service.auth.admin.updateUserById(userId, { password, email_confirm: true });
+    if (error) return { ok: false, error: `Не вдалося змінити код: ${error.message}` };
+  } else {
+    const { data, error } = await service.auth.admin.createUser({
+      email: apartmentLoginEmail(apartmentId),
+      password,
+      email_confirm: true,
+      user_metadata: { apartment_number: apt.apartment_number },
     });
-    if (error) return dbErrorToResult(error);
-    refresh();
-    return { ok: true, data: { code: String(data) } };
+    if (error || !data.user) {
+      // запис з такою технічною адресою вже є (напр. після збою) — використовуємо його
+      const { data: list } = await service.auth.admin.listUsers({ perPage: 1000 });
+      const found = list?.users.find((u) => u.email === apartmentLoginEmail(apartmentId));
+      if (!found) return { ok: false, error: `Не вдалося створити доступ: ${error?.message ?? "невідома помилка"}` };
+      const { error: updError } = await service.auth.admin.updateUserById(found.id, { password, email_confirm: true });
+      if (updError) return { ok: false, error: `Не вдалося створити доступ: ${updError.message}` };
+      userId = found.id;
+    } else {
+      userId = data.user.id;
+    }
+  }
+
+  const { error: bindError } = await supabase.rpc("admin_register_access_code", {
+    p_apartment_id: apartmentId,
+    p_auth_user_id: userId,
   });
+  if (bindError) return dbErrorToResult(bindError);
+  return { ok: true, data: { code } };
 }
 
-export async function generateCodesBulkAction(): Promise<ActionResult<{ codes: { apartment_number: string; resident_surname: string; code: string }[] }>> {
-  return guard(async () => {
-    const supabase = await admin();
-    const { data, error } = await supabase.rpc("admin_generate_codes_bulk");
-    if (error) return dbErrorToResult(error);
-    refresh();
-    return { ok: true, data: { codes: (data ?? []) as { apartment_number: string; resident_surname: string; code: string }[] } };
-  });
-}
-
-export async function revokeCodeAction(apartmentId: string): Promise<ActionResult> {
+export async function generateCodeAction(apartmentId: string): Promise<ActionResult<{ code: string }>> {
   return guard(async () => {
     if (!uuid.safeParse(apartmentId).success) return { ok: false, error: "Некоректна квартира" };
     const supabase = await admin();
-    const { error } = await supabase.rpc("admin_revoke_registration_code", { p_apartment_id: apartmentId });
+    const res = await issueAccessCode(supabase, apartmentId);
+    if (res.ok) refresh();
+    return res;
+  });
+}
+
+/** Коди для всіх активних квартир, які ще не мають доступу. Наявні коди не змінюються. */
+export async function generateCodesBulkAction(): Promise<
+  ActionResult<{ codes: { apartment_number: string; resident_surname: string; code: string }[]; failed: string[] }>
+> {
+  return guard(async () => {
+    const supabase = await admin();
+    const { data, error } = await supabase.rpc("admin_list_apartments");
     if (error) return dbErrorToResult(error);
+    const targets = ((data ?? []) as { id: string; apartment_number: string; resident_surname: string; is_active: boolean; accounts_count: number }[])
+      .filter((a) => a.is_active && a.accounts_count === 0);
+    const codes: { apartment_number: string; resident_surname: string; code: string }[] = [];
+    const failed: string[] = [];
+    for (const a of targets) {
+      const res = await issueAccessCode(supabase, a.id);
+      if (res.ok) codes.push({ apartment_number: a.apartment_number, resident_surname: a.resident_surname, code: res.data!.code });
+      else failed.push(`№${a.apartment_number}: ${res.error}`);
+    }
     refresh();
-    return { ok: true, message: "Код скасовано" };
+    if (targets.length === 0) return { ok: true, message: "Усі активні квартири вже мають код доступу", data: { codes, failed } };
+    return { ok: true, data: { codes, failed } };
   });
 }
 

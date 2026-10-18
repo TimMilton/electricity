@@ -2,17 +2,20 @@
 #   gateway  — Caddy: єдина точка входу (HTTP локально або HTTPS з доменом)
 #   app      — вебзастосунок (Next.js)
 #   db       — PostgreSQL (образ Supabase)
-#   auth     — Supabase Auth (GoTrue): облікові записи, листи підтвердження
+#   auth     — Supabase Auth (GoTrue): облікові записи квартир і адміністраторів
 #   rest     — PostgREST: доступ застосунку до бази з RLS
 #   storage  — Supabase Storage: приватне сховище квитанцій
 #   migrate  — одноразово застосовує міграції застосунку
 #   cron     — щоденна системна задача (розрахункові періоди)
-#   mail     — Mailpit: локальна поштова скринька для листів (http://localhost:8025)
+#
+# Мешканці входять за номером квартири та кодом доступу від адміністратора —
+# пошта й листи не використовуються.
 #
 # Перший запуск:
 #   node docker/init-env.mjs          # або без Node — див. README
 #   docker compose up -d --build
 #   docker compose exec app node scripts/create-admin.mjs --email you@example.com
+#   (далі адміністратор видає коди доступу квартирам у розділі «Квартири»)
 #
 # Усі змінні — у файлі .env (створює docker/init-env.mjs за зразком .env.docker.example).
 
@@ -92,7 +95,8 @@ services:
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
       GOTRUE_SITE_URL: ${PUBLIC_URL:-http://localhost:8080}
       GOTRUE_URI_ALLOW_LIST: ${PUBLIC_URL:-http://localhost:8080}/**
-      GOTRUE_DISABLE_SIGNUP: "false"
+      # Самостійної реєстрації немає: облікові записи квартир створює сервер застосунку
+      GOTRUE_DISABLE_SIGNUP: "true"
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
@@ -102,27 +106,8 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
       GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
-      GOTRUE_MAILER_AUTOCONFIRM: ${EMAIL_AUTOCONFIRM:-false}
-      GOTRUE_RATE_LIMIT_EMAIL_SENT: ${EMAIL_RATE_LIMIT_PER_HOUR:-60}
-      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-noreply@elektrooblik.local}
-      GOTRUE_SMTP_HOST: ${SMTP_HOST:-mail}
-      GOTRUE_SMTP_PORT: ${SMTP_PORT:-1025}
-      GOTRUE_SMTP_USER: ${SMTP_USER:-local}
-      GOTRUE_SMTP_PASS: ${SMTP_PASS:-local}
-      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-Електрооблік будинку}
-      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
-      # Українські листи (шаблони віддає застосунок із public/email-templates)
-      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: Підтвердіть електронну пошту
-      GOTRUE_MAILER_SUBJECTS_RECOVERY: Зміна пароля
-      GOTRUE_MAILER_SUBJECTS_EMAIL_CHANGE: Підтвердіть нову адресу
-      GOTRUE_MAILER_SUBJECTS_INVITE: Запрошення до Електрообліку
-      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: http://app:3000/email-templates/confirmation.html
-      GOTRUE_MAILER_TEMPLATES_RECOVERY: http://app:3000/email-templates/recovery.html
-      GOTRUE_MAILER_TEMPLATES_EMAIL_CHANGE: http://app:3000/email-templates/email_change.html
-      GOTRUE_MAILER_TEMPLATES_INVITE: http://app:3000/email-templates/invite.html
+      # Листи не надсилаються: облікові записи створюються одразу підтвердженими
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
       interval: 5s
@@ -216,12 +201,6 @@ services:
           fi
           sleep 21600
         done
-
-  mail:
-    image: ${MAILPIT_IMAGE:-axllent/mailpit:v1.24.0}
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${MAIL_UI_PORT:-8025}:8025"
 
 volumes:
   db-data:

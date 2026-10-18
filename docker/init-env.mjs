@@ -80,10 +80,10 @@ writeFileSync(target, lines.join("\n"), { mode: 0o600 });
 
 console.log(`Створено .env
   Адреса застосунку:  ${values.PUBLIC_URL}
-  Поштова скринька:   http://localhost:8025 (листи підтвердження, поки не налаштовано SMTP)
 
 Далі:
   docker compose up -d --build
   docker compose exec app node scripts/create-admin.mjs --email you@example.com --surname Прізвище
+  (далі в розділі «Квартири» видайте коди доступу мешканцям)
 ${domain ? `\nПеред запуском спрямуйте DNS-запис ${domain} на цей сервер і відкрийте порти 80 та 443.\n` : ""}
 Збережіть .env у надійному місці: без нього не відновити доступ до бази з резервної копії.`);
