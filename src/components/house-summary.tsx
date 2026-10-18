@@ -39,7 +39,26 @@ function CoverageBar({ common, apartments }: { common: bigint; apartments: bigin
 }
 
 /** Блок «Будинок»: загальний лічильник, різниця з квартирами, борг у гривнях, депозит. */
-export function HouseSummaryPanel({ summary, compact }: { summary: HouseSummary | null; compact?: boolean }) {
+export function HouseSummaryPanel({
+  summary,
+  compact,
+  failed,
+}: {
+  summary: HouseSummary | null;
+  compact?: boolean;
+  /** Запит до бази завершився помилкою (напр. не застосовано міграцію) */
+  failed?: boolean;
+}) {
+  if (failed) {
+    return (
+      <Panel title="Будинок" description="Загальний лічильник, різниця з квартирами, борг і депозит">
+        <Notice tone="warn" title="Не вдалося завантажити дані будинку">
+          Спробуйте оновити сторінку пізніше. Якщо повідомлення не зникає, зверніться до адміністратора: у базі даних може бракувати
+          оновлення <span className="whitespace-nowrap">20261018000001_house_summary.sql</span>.
+        </Notice>
+      </Panel>
+    );
+  }
   if (!summary) return null;
   const title = summary.period ? `Будинок: ${summary.period.label.toLowerCase()}` : "Будинок";
 

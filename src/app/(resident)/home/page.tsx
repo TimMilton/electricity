@@ -13,10 +13,11 @@ export default async function HomePage() {
   const [period, settings] = await Promise.all([getCurrentPeriod(), getSettings()]);
   const state = period ? await getApartmentPeriodState(ctx.apartment.id, period.id) : null;
   const supabase = await createClient();
-  const [{ data: deposit }, { data: house }] = await Promise.all([
+  const [{ data: deposit }, { data: house, error: houseError }] = await Promise.all([
     supabase.rpc("get_deposit_summary"),
     supabase.rpc("get_house_summary", { p_period_id: null }),
   ]);
+  if (houseError) console.error("get_house_summary:", houseError.code, houseError.message);
   return (
     <HomeView
       apartment={ctx.apartment}
@@ -25,6 +26,7 @@ export default async function HomePage() {
       otherEnabled={settings.other_charges_enabled}
       deposit={deposit as { is_public: boolean; balance: number | null } | null}
       house={house as HouseSummary | null}
+      houseFailed={Boolean(houseError)}
       state={state}
     />
   );

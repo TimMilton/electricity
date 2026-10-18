@@ -16,10 +16,13 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
   const { period, periods } = await resolvePeriod(sp.period);
   const settings = await getSettings();
   let house: HouseSummary | null = null;
+  let houseFailed = false;
   if (period) {
     const supabase = await createClient();
-    const { data } = await supabase.rpc("get_house_summary", { p_period_id: period.id });
+    const { data, error } = await supabase.rpc("get_house_summary", { p_period_id: period.id });
+    if (error) console.error("get_house_summary:", error.code, error.message);
     house = data as HouseSummary | null;
+    houseFailed = Boolean(error);
   }
 
   return (
@@ -42,7 +45,7 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
       )}
       {period ? (
         <div className="flex flex-col gap-5">
-          <HouseSummaryPanel summary={house} compact />
+          <HouseSummaryPanel summary={house} failed={houseFailed} compact />
           <ResidentsTable rows={await getPeriodTable(period.id)} periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
         </div>
       ) : (

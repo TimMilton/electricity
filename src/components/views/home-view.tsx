@@ -19,6 +19,7 @@ export type HomeViewProps = {
   deposit: { is_public: boolean; balance: number | string | null } | null;
   /** Загальний лічильник, різниця з квартирами, борг і депозит */
   house?: HouseSummary | null;
+  houseFailed?: boolean;
   state: {
     reading: MeterReading | null;
     charges: { deposit: string; hallLighting: string; other: string } | null;
@@ -29,7 +30,7 @@ export type HomeViewProps = {
 };
 
 /** Головна сторінка мешканця (без звернень до даних — використовується і в попередньому перегляді). */
-export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, state }: HomeViewProps) {
+export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, houseFailed, state }: HomeViewProps) {
   if (!period || !state) {
     return (
       <div className="flex flex-col gap-5">
@@ -37,7 +38,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
         <EmptyState title="Розрахунковий період ще не створено">
           Адміністратор ще не відкрив приймання показників. Спробуйте пізніше.
         </EmptyState>
-        <HouseSummaryPanel summary={house ?? null} />
+        <HouseSummaryPanel summary={house ?? null} failed={houseFailed} />
       </div>
     );
   }
@@ -184,7 +185,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
         </Panel>
       </div>
 
-      <HouseSummaryPanel summary={house ?? null} />
+      <HouseSummaryPanel summary={house ?? null} failed={houseFailed} />
     </div>
   );
 }
