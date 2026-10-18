@@ -237,3 +237,29 @@ export type HouseReport = {
   charges_total?: number;
   pending_review_all?: number;
 };
+
+/** Зведення по будинку для мешканця (функція get_house_summary). */
+export type HouseSummary = {
+  period: { id: string; year: number; month: number; label: string } | null;
+  has_common: boolean;
+  common_previous?: Num | null;
+  common_current?: Num | null;
+  common_kwh?: Num | null;
+  common_updated_at?: string | null;
+  apartments_kwh?: Num;
+  apartments_with_readings?: number;
+  active_apartments?: number;
+  apartments_missing?: number;
+  is_preliminary?: boolean;
+  discrepancy_kwh?: Num | null;
+  tariff_rate?: Num | null;
+  common_amount?: Num | null;
+  apartments_amount?: Num;
+  discrepancy_amount?: Num | null;
+  paid_electricity?: Num;
+  reconciliation_status?: ReconciliationStatus | null;
+  deposit_public: boolean;
+  deposit_balance: Num | null;
+  deposit_already_applied?: boolean;
+  deposit_after?: Num | null;
+};

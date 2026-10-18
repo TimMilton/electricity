@@ -4,6 +4,9 @@ import { getPeriodTable, getSettings, resolvePeriod } from "@/lib/data";
 import { periodLabel } from "@/lib/utils";
 import { Button, EmptyState, PageHeader, Select } from "@/components/ui/controls";
 import { ResidentsTable } from "@/components/residents-table";
+import { HouseSummaryPanel } from "@/components/house-summary";
+import { createClient } from "@/lib/supabase/server";
+import type { HouseSummary } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Список мешканців" };
 
@@ -12,6 +15,12 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
   const sp = await searchParams;
   const { period, periods } = await resolvePeriod(sp.period);
   const settings = await getSettings();
+  let house: HouseSummary | null = null;
+  if (period) {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("get_house_summary", { p_period_id: period.id });
+    house = data as HouseSummary | null;
+  }
 
   return (
     <>
@@ -32,7 +41,10 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
         </form>
       )}
       {period ? (
-        <ResidentsTable rows={await getPeriodTable(period.id)} periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
+        <div className="flex flex-col gap-5">
+          <HouseSummaryPanel summary={house} compact />
+          <ResidentsTable rows={await getPeriodTable(period.id)} periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
+        </div>
       ) : (
         <EmptyState title="Даних ще немає">Розрахункові періоди ще не створено.</EmptyState>
       )}

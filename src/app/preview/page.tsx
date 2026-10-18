@@ -12,7 +12,8 @@ import { PaymentFlow } from "@/components/payment-flow";
 import { ResidentsTable } from "@/components/residents-table";
 import { WindowNotice } from "@/components/charges";
 import { periodLabel } from "@/lib/utils";
-import { demoApartment, demoPayment, demoPeriod, demoReading, demoReport, demoTable } from "./demo-data";
+import { demoApartment, demoHouse, demoPayment, demoPeriod, demoReading, demoReport, demoTable } from "./demo-data";
+import { HouseSummaryPanel } from "@/components/house-summary";
 
 export const metadata: Metadata = { title: "Попередній перегляд" };
 
@@ -84,6 +85,7 @@ export default async function PreviewPage({ searchParams }: PageProps<"/preview"
         isAdmin={false}
         otherEnabled={false}
         deposit={{ is_public: true, balance: "1480.00" }}
+        house={demoHouse}
         state={{
           reading: demoReading,
           charges: { deposit: "50.00", hallLighting: "15.50", other: "0.00" },
@@ -131,7 +133,10 @@ export default async function PreviewPage({ searchParams }: PageProps<"/preview"
     content = (
       <>
         <PageHeader title="Список мешканців" description="Показники та нарахування всіх квартир за обраний місяць." />
-        <ResidentsTable rows={demoTable} periodId={demoPeriod.id} maxSizeMb={10} />
+        <div className="flex flex-col gap-5">
+          <HouseSummaryPanel summary={demoHouse} compact />
+          <ResidentsTable rows={demoTable} periodId={demoPeriod.id} maxSizeMb={10} />
+        </div>
       </>
     );
   }

@@ -8,7 +8,8 @@ import { MeterDrum, PaymentStatusBadge } from "@/components/ui/status";
 import { ChargeBreakdown, WindowNotice } from "@/components/charges";
 import { ReceiptList } from "@/components/receipt-list";
 import type { ReceiptView } from "@/lib/receipts";
-import type { BillingPeriod, MeterReading, Payment } from "@/lib/types";
+import { HouseSummaryPanel } from "@/components/house-summary";
+import type { BillingPeriod, HouseSummary, MeterReading, Payment } from "@/lib/types";
 
 export type HomeViewProps = {
   apartment: { apartment_number: string; resident_surname: string };
@@ -16,6 +17,8 @@ export type HomeViewProps = {
   isAdmin: boolean;
   otherEnabled: boolean;
   deposit: { is_public: boolean; balance: number | string | null } | null;
+  /** Загальний лічильник, різниця з квартирами, борг і депозит */
+  house?: HouseSummary | null;
   state: {
     reading: MeterReading | null;
     charges: { deposit: string; hallLighting: string; other: string } | null;
@@ -26,7 +29,7 @@ export type HomeViewProps = {
 };
 
 /** Головна сторінка мешканця (без звернень до даних — використовується і в попередньому перегляді). */
-export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, state }: HomeViewProps) {
+export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, state }: HomeViewProps) {
   if (!period || !state) {
     return (
       <div className="flex flex-col gap-5">
@@ -34,6 +37,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
         <EmptyState title="Розрахунковий період ще не створено">
           Адміністратор ще не відкрив приймання показників. Спробуйте пізніше.
         </EmptyState>
+        <HouseSummaryPanel summary={house ?? null} />
       </div>
     );
   }
@@ -172,13 +176,15 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
               </Link>
             </Button>
           </div>
-          {dep?.is_public && dep.balance !== null && (
+          {!house && dep?.is_public && dep.balance !== null && (
             <p className="mt-5 border-t border-line pt-4 text-[15px]">
               Баланс депозиту будинку: <span className="tabular font-semibold">{formatMoney(dep.balance)}</span>
             </p>
           )}
         </Panel>
       </div>
+
+      <HouseSummaryPanel summary={house ?? null} />
     </div>
   );
 }

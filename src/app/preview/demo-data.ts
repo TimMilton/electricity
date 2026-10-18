@@ -114,3 +114,28 @@ export const demoReport: HouseReport = {
   charges_total: 7446,
   pending_review_all: 2,
 };
+
+export const demoHouse: import("@/lib/types").HouseSummary = {
+  period: { id: "00000000-0000-4000-8000-000000000002", year: 2026, month: 8, label: "Серпень 2026" },
+  has_common: true,
+  common_previous: "48210.00",
+  common_current: "49882.00",
+  common_kwh: "1672.00",
+  common_updated_at: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+  apartments_kwh: "1583.45",
+  apartments_with_readings: 12,
+  active_apartments: 12,
+  apartments_missing: 0,
+  is_preliminary: false,
+  discrepancy_kwh: "88.55",
+  tariff_rate: "4.3200",
+  common_amount: "7223.04",
+  apartments_amount: "6840.50",
+  discrepancy_amount: "382.54",
+  paid_electricity: "6120.30",
+  reconciliation_status: "reviewed",
+  deposit_public: true,
+  deposit_balance: "1480.00",
+  deposit_already_applied: false,
+  deposit_after: "1097.46",
+};
