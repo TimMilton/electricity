@@ -1,13 +1,6 @@
-import type { Metadata } from "next";
-import { ResetPasswordForm } from "@/components/auth-forms";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Новий пароль" };
-
+// Скидання пароля за посиланням із листа більше немає: код доступу змінює адміністратор.
 export default function ResetPasswordPage() {
-  return (
-    <div className="flex flex-col gap-6 pt-6">
-      <h1 className="font-display text-3xl font-bold">Новий пароль</h1>
-      <ResetPasswordForm />
-    </div>
-  );
+  redirect("/login");
 }
