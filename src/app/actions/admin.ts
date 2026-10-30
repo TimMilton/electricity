@@ -439,6 +439,7 @@ export async function saveCommonReadingAction(input: unknown): Promise<ActionRes
       p_notes: d.notes ?? null,
       p_reason: d.reason ?? null,
       p_acknowledge: d.acknowledge,
+      p_update_next: d.updateNext,
     });
     if (error) return dbErrorToResult(error);
     refresh();

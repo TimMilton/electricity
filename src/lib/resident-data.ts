@@ -10,6 +10,8 @@ export type ApartmentPeriodState = {
   receipts: ReceiptView[];
   events: PaymentEvent[];
   previous: { value: string | null; source: "reading" | "initial" | null; recordedAt: string | null; label: string | null };
+  /** Перше подання квартири: до цього місяця немає ні показників, ні початкового показника */
+  isFirstEntry: boolean;
   tariff: string | null;
 };
 
@@ -61,6 +63,7 @@ export async function getApartmentPeriodState(apartmentId: string, periodId: str
       recordedAt: prevRow?.recorded_at ?? null,
       label: prevRow?.source_label ?? null,
     },
+    isFirstEntry: !prevRow,
     tariff: readingRes.data ? String(readingRes.data.tariff_rate) : tariffRes.data != null ? String(tariffRes.data) : null,
   };
 }

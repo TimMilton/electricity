@@ -23,7 +23,7 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
     supabase.from("common_meter_readings").select("*").eq("billing_period_id", period.id).maybeSingle<CommonReading>(),
     supabase.rpc("get_previous_common_reading", { p_period_id: period.id }),
     supabase.from("reconciliation_records").select("*").eq("billing_period_id", period.id).maybeSingle<Reconciliation>(),
-    supabase.from("common_meter_readings").select("*, billing_periods(year, month)").order("submitted_at", { ascending: false }).limit(24),
+    supabase.from("common_meter_readings").select("*"),
     supabase.rpc("get_deposit_summary"),
   ]);
   // Скільки вже використано з депозиту на розбіжність цього місяця
@@ -33,6 +33,15 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
     const used = ((ledger ?? []) as { amount: number | string }[]).reduce((sum, l) => sum - (fromDb(l.amount, 2) ?? 0n), 0n);
     depositUsed = used > 0n ? toDecimalString(used, 2) : null;
   }
+
+  // Усі місяці (від нових до старих) з показником, якщо його внесено
+  const readings = new Map(((history ?? []) as CommonReading[]).map((h) => [h.billing_period_id, h]));
+  const ordered = [...periods].sort((a, b) => b.year - a.year || b.month - a.month);
+  // Найближчий наступний місяць із показником — його початкове значення можна узгодити
+  const nextPeriod = [...ordered]
+    .reverse()
+    .find((p) => (p.year > period.year || (p.year === period.year && p.month > period.month)) && readings.has(p.id));
+  const nextReading = nextPeriod ? readings.get(nextPeriod.id) : undefined;
 
   return (
     <>
@@ -49,6 +58,7 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
             existing={common ? { previous: String(common.previous_reading), current: String(common.current_reading), notes: common.notes } : null}
             suggestedPrevious={prev != null ? String(prev) : null}
             depositUsed={depositUsed}
+            next={nextPeriod && nextReading ? { label: periodLabel(nextPeriod), previous: String(nextReading.previous_reading) } : null}
           />
           {common && (
             <div className="mt-5 border-t border-line pt-4">
@@ -64,20 +74,43 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
           </Panel>
         )}
       </div>
-      <Panel title="Історія показників" className="mt-5">
+      <Panel
+        title="Усі місяці"
+        description="Оберіть місяць, щоб внести або виправити показник. Потрібного місяця немає — створіть його в розділі «Періоди»."
+        className="mt-5"
+      >
         <ul className="divide-y divide-line">
-          {((history ?? []) as (CommonReading & { billing_periods: { year: number; month: number } })[]).map((h) => (
-            <li key={h.id} className="flex flex-wrap justify-between gap-2 py-2 text-[15px]">
-              <Link href={`/admin/common-meter?period=${h.billing_period_id}`} className="text-face underline underline-offset-4">{periodLabel(h.billing_periods)}</Link>
-              <span className="flex items-center gap-3">
-                <span className="tabular">{formatReading(h.previous_reading)} → {formatReading(h.current_reading)}, {formatKwh(h.consumption_kwh)}</span>
-                <Link href={`/admin/common-meter?period=${h.billing_period_id}`} className="text-sm text-face underline underline-offset-4">
-                  Змінити
+          {ordered.map((p) => {
+            const h = readings.get(p.id);
+            const selected = p.id === period.id;
+            return (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[15px]">
+                <Link
+                  href={`/admin/common-meter?period=${p.id}`}
+                  className={selected ? "font-semibold" : "text-face underline underline-offset-4"}
+                  aria-current={selected ? "page" : undefined}
+                >
+                  {periodLabel(p)}
                 </Link>
-              </span>
-            </li>
-          ))}
+                <span className="flex items-center gap-3">
+                  {h ? (
+                    <span className="tabular">{formatReading(h.previous_reading)} → {formatReading(h.current_reading)}, {formatKwh(h.consumption_kwh)}</span>
+                  ) : (
+                    <span className="text-ink-soft">Не внесено</span>
+                  )}
+                  {!selected && (
+                    <Link href={`/admin/common-meter?period=${p.id}`} className="text-sm text-face underline underline-offset-4">
+                      {h ? "Змінити" : "Внести"}
+                    </Link>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
+        <p className="mt-3 text-sm">
+          <Link href="/admin/periods" className="text-face underline underline-offset-4">Створити період за минулий місяць</Link>
+        </p>
       </Panel>
     </>
   );

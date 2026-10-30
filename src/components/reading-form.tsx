@@ -29,6 +29,8 @@ export type ReadingFormProps = {
   maxContribution: string;
   isAdmin: boolean;
   hasExisting: boolean;
+  /** Перше подання квартири: показник на початок обліку вводить мешканець і може виправити, поки вікно відкрите */
+  firstEntry?: boolean;
 };
 
 export function ReadingForm(props: ReadingFormProps) {
@@ -38,10 +40,13 @@ export function ReadingForm(props: ReadingFormProps) {
   const [confirmText, setConfirmText] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const needsPrevious = props.previous === null;
+  // Перше подання вже збережено: показник на початок обліку можна виправити
+  const firstEntryEditable = !props.isAdmin && !!props.firstEntry && props.hasExisting && props.previous !== null;
+  const previousEditable = needsPrevious || firstEntryEditable;
 
   const schema = z.object({
     current: decimal("Поточний показник", 2, true),
-    previous: decimal("Попередній показник", 2, needsPrevious),
+    previous: decimal("Показник на початок обліку", 2, previousEditable),
     deposit: decimal("Депозит", 2, false),
     hallLighting: decimal("Освітлення під'їзду", 2, false),
     other: decimal("Інші внески", 2, false),
@@ -54,7 +59,7 @@ export function ReadingForm(props: ReadingFormProps) {
     resolver: zodResolver(schema),
     defaultValues: {
       current: props.initial.current,
-      previous: "",
+      previous: firstEntryEditable ? (props.previous ?? "") : "",
       deposit: props.initial.deposit,
       hallLighting: props.initial.hallLighting,
       other: props.initial.other,
@@ -63,7 +68,7 @@ export function ReadingForm(props: ReadingFormProps) {
     },
   });
   const values = useWatch({ control: form.control });
-  const effectivePrevious = (props.isAdmin && values.previous) || props.previous || values.previous || "";
+  const effectivePrevious = ((props.isAdmin || firstEntryEditable) && values.previous) || props.previous || values.previous || "";
 
   const calc =
     values.current && effectivePrevious && props.tariff
@@ -127,20 +132,28 @@ export function ReadingForm(props: ReadingFormProps) {
   return (
     <form onSubmit={form.handleSubmit((d) => submit(d))} className="flex flex-col gap-5" noValidate>
       <Panel title={`Показник лічильника за ${props.periodLabel.toLowerCase()}`}>
+        {previousEditable && (
+          <Notice tone="info" className="mb-4" title="Перше подання показників">
+            Вкажіть два числа: показник на початок обліку (на 1 число місяця) і поточний показник. Наступного місяця
+            попереднім автоматично стане сьогоднішній поточний показник — вводити його знову не потрібно.
+            {firstEntryEditable && " Поки приймання відкрите, обидва значення можна виправити."}
+          </Notice>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Попередній показник</span>
-            {props.previous !== null ? (
-              <>
-                <span className="tabular flex h-11 items-center rounded-[var(--radius-control)] bg-casing px-3 font-semibold">
-                  {formatReading(props.previous)}
-                </span>
-                {props.previousCaption && <span className="text-sm text-ink-soft">{props.previousCaption}</span>}
-              </>
-            ) : (
-              <span className="text-sm text-ink-soft">Історії показників ще немає — вкажіть показник на початок обліку нижче.</span>
-            )}
-          </div>
+          {!previousEditable && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Попередній показник</span>
+              <span className="tabular flex h-11 items-center rounded-[var(--radius-control)] bg-casing px-3 font-semibold">
+                {formatReading(props.previous)}
+              </span>
+              {props.previousCaption && <span className="text-sm text-ink-soft">{props.previousCaption}</span>}
+            </div>
+          )}
+          {previousEditable && (
+            <Field label="Показник на початок обліку, кВт·год" htmlFor="previous" error={err.previous?.message}>
+              <Input id="previous" inputMode="decimal" autoComplete="off" className="tabular" aria-invalid={!!err.previous} {...form.register("previous")} />
+            </Field>
+          )}
           <Field label="Поточний показник, кВт·год" htmlFor="current" error={err.current?.message}>
             <Input
               id="current"
@@ -151,11 +164,11 @@ export function ReadingForm(props: ReadingFormProps) {
               {...form.register("current")}
             />
           </Field>
-          {(needsPrevious || props.isAdmin) && (
+          {props.isAdmin && !previousEditable && (
             <Field
-              label={needsPrevious ? "Показник на початок обліку, кВт·год" : "Змінити попередній показник (заміна лічильника)"}
+              label="Змінити попередній показник (заміна лічильника)"
               htmlFor="previous"
-              hint={props.isAdmin && !needsPrevious ? "Залиште порожнім, щоб використати зафіксований показник" : undefined}
+              hint="Залиште порожнім, щоб використати зафіксований показник"
               error={err.previous?.message}
             >
               <Input id="previous" inputMode="decimal" autoComplete="off" className="tabular" aria-invalid={!!err.previous} {...form.register("previous")} />

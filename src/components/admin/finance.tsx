@@ -11,23 +11,31 @@ import {
   deleteCommonReadingAction,
 } from "@/app/actions/admin";
 import { Trash2 } from "lucide-react";
-import { Button, Field, Input, Notice, Select, Textarea } from "@/components/ui/controls";
+import { Button, Checkbox, Field, Input, Notice, Select, Textarea } from "@/components/ui/controls";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useAction } from "@/components/admin/use-action";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatReading, tryParseScaled } from "@/lib/money";
 import type { ReconciliationStatus } from "@/lib/types";
+
+function sameReading(a: string, b: string) {
+  const x = tryParseScaled(a, 2);
+  return x !== null && x === tryParseScaled(b, 2);
+}
 
 export function CommonReadingForm({
   periodId,
   existing,
   suggestedPrevious,
   depositUsed,
+  next,
 }: {
   periodId: string;
   existing: { previous: string; current: string; notes: string | null } | null;
   suggestedPrevious: string | null;
   /** Скільки вже використано з депозиту на розбіжність цього місяця */
   depositUsed?: string | null;
+  /** Наступний місяць із показником: з якого значення він починається */
+  next?: { label: string; previous: string } | null;
 }) {
   const { run, pending, error, fieldErrors } = useAction();
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -37,6 +45,11 @@ export function CommonReadingForm({
     notes: existing?.notes ?? "",
     reason: "",
   });
+  // За замовчуванням узгоджуємо наступний місяць, якщо він зараз починається з поточного значення
+  const [updateNext, setUpdateNext] = useState<boolean>(
+    !!next && (!existing || sameReading(next.previous, existing.current)),
+  );
+  const nextDiffers = !!next && tryParseScaled(f.currentReading, 2) !== null && !sameReading(f.currentReading, next.previous);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
 
   function save(acknowledge: boolean) {
@@ -49,6 +62,7 @@ export function CommonReadingForm({
           notes: f.notes || undefined,
           reason: f.reason || undefined,
           acknowledge,
+          updateNext: nextDiffers && updateNext,
         }),
       {
         onConfirm: (msg) => setConfirm(msg),
@@ -99,6 +113,19 @@ export function CommonReadingForm({
         >
           <Input id="cm-reason" value={f.reason} onChange={set("reason")} />
         </Field>
+      )}
+      {next && nextDiffers && (
+        <Checkbox
+          label={
+            <>
+              Також змінити початковий показник за {next.label.toLowerCase()}: зараз{" "}
+              <span className="tabular">{formatReading(next.previous)}</span>, стане{" "}
+              <span className="tabular">{formatReading(f.currentReading.replace(",", "."))}</span>
+            </>
+          }
+          checked={updateNext}
+          onChange={(e) => setUpdateNext(e.target.checked)}
+        />
       )}
       {error && <Notice tone="danger">{error}</Notice>}
       {confirm && (

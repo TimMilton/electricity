@@ -92,6 +92,7 @@ export default async function ReadingsPage({ searchParams }: PageProps<"/reading
           periodLabel={periodLabel(period)}
           previous={state.previous.value}
           previousCaption={caption}
+          firstEntry={state.isFirstEntry}
           tariff={state.tariff}
           initial={{
             current: state.reading ? String(state.reading.current_reading) : "",
