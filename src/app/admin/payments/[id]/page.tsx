@@ -96,7 +96,7 @@ export default async function AdminPaymentPage({ params }: PageProps<"/admin/pay
         </div>
         <div className="flex flex-col gap-5">
           <Panel title="Квитанції">
-            {receiptViews.length ? <ReceiptList receipts={receiptViews} /> : <p className="text-ink-soft">Квитанцію не завантажено</p>}
+            {receiptViews.length ? <ReceiptList receipts={receiptViews} deletable /> : <p className="text-ink-soft">Квитанцію не завантажено</p>}
             {receiptViews[0]?.url && receiptViews[0].mime_type === "application/pdf" && (
               <iframe src={receiptViews[0].url} title="Перегляд квитанції" className="mt-3 h-96 w-full rounded-md border border-line" />
             )}

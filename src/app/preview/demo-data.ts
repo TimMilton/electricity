@@ -139,4 +139,12 @@ export const demoHouse: import("@/lib/types").HouseSummary = {
   deposit_balance: "1480.00",
   deposit_already_applied: false,
   deposit_after: "1097.46",
+  charged_deposit: "370.00",
+  charged_hall_lighting: "150.50",
+  charged_other: "0.00",
+  charged_extras: "520.50",
+  charged_total: "7361.00",
+  paid_total: "3915.42",
+  paid_extras: "245.50",
+  envelope_url: "https://example.com/envelope",
 };

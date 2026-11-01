@@ -267,4 +267,15 @@ export type HouseSummary = {
   /** Скільки вже використано з депозиту на розбіжність цього місяця */
   deposit_used?: Num | null;
   deposit_after?: Num | null;
+  /** Внески квартир поза електроенергією за місяць (за поданими показниками) */
+  charged_deposit?: Num;
+  charged_hall_lighting?: Num;
+  charged_other?: Num;
+  charged_extras?: Num;
+  /** Усього нараховано квартирам: електроенергія + внески */
+  charged_total?: Num;
+  /** Підтверджені оплати за місяць і їхня частина поза електроенергією */
+  paid_total?: Num;
+  paid_extras?: Num;
+  envelope_url?: string | null;
 };

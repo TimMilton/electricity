@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { resolvePeriod } from "@/lib/data";
+import { getSettings, resolvePeriod } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/ui/controls";
 import { AdminOverviewView } from "@/components/views/admin-overview-view";
-import type { HouseReport } from "@/lib/types";
+import type { HouseReport, HouseSummary } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Огляд" };
 
@@ -27,6 +27,20 @@ export default async function AdminOverviewPage({ searchParams }: PageProps<"/ad
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_admin_overview", { p_period_id: period.id });
-  return <AdminOverviewView period={period} periods={periods} report={data as HouseReport} />;
+  const [{ data }, { data: house, error: houseError }, settings] = await Promise.all([
+    supabase.rpc("get_admin_overview", { p_period_id: period.id }),
+    supabase.rpc("get_house_summary", { p_period_id: period.id }),
+    getSettings(),
+  ]);
+  if (houseError) console.error("get_house_summary:", houseError.code, houseError.message);
+  return (
+    <AdminOverviewView
+      period={period}
+      periods={periods}
+      report={data as HouseReport}
+      house={house as HouseSummary | null}
+      houseFailed={Boolean(houseError)}
+      envelopeUrl={settings.envelope_url}
+    />
+  );
 }

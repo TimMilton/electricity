@@ -9,6 +9,7 @@ import { formatDateTime, periodLabel } from "@/lib/utils";
 import { Button, EmptyState, PageHeader, Select } from "@/components/ui/controls";
 import { PaymentStatusBadge, PAYMENT_STATUS_LABEL } from "@/components/ui/status";
 import type { Payment, PaymentStatus } from "@/lib/types";
+import { getEntranceMap, matchesEntrance, parseEntranceFilter } from "@/lib/entrance";
 
 export const metadata: Metadata = { title: "Платежі" };
 
@@ -27,6 +28,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
   const status = typeof sp.status === "string" && STATUSES.includes(sp.status as PaymentStatus) ? (sp.status as PaymentStatus) : undefined;
   const periodId = typeof sp.period === "string" && periods.some((p) => p.id === sp.period) ? sp.period : undefined;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const entrance = parseEntranceFilter(sp.entrance);
 
   const supabase = await createClient();
   let query = supabase
@@ -36,8 +38,9 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
     .limit(500);
   if (status) query = query.eq("status", status);
   if (periodId) query = query.eq("billing_period_id", periodId);
-  const { data } = await query;
+  const [{ data }, entrances] = await Promise.all([query, getEntranceMap(supabase)]);
   let rows = (data ?? []) as Row[];
+  if (entrance) rows = rows.filter((r) => matchesEntrance(entrances.get(r.apartment_id), entrance));
   if (q) {
     const ql = q.toLowerCase();
     rows = rows.filter(
@@ -68,6 +71,16 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
           </Select>
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium">
+          Під&apos;їзд
+          <Select name="entrance" defaultValue={entrance} className="w-40">
+            <option value="">Усі</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="none">Не вказано</option>
+          </Select>
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Квартира або прізвище
           <input name="q" defaultValue={q} className="h-11 w-44 rounded-[var(--radius-control)] border border-line bg-surface px-3" />
         </label>
@@ -82,6 +95,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
             <thead className="bg-casing text-left text-sm text-ink-soft">
               <tr>
                 <th className="px-3 py-2.5 font-medium">Кв.</th>
+                <th className="px-3 py-2.5 text-center font-medium">Під&apos;їзд</th>
                 <th className="px-3 py-2.5 font-medium">Прізвище</th>
                 <th className="px-3 py-2.5 font-medium">Період</th>
                 <th className="px-3 py-2.5 text-right font-medium">Сума</th>
@@ -94,6 +108,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-line">
                   <td className="px-3 py-2.5 font-semibold">{r.apartments?.apartment_number}</td>
+                  <td className="tabular px-3 py-2.5 text-center">{entrances.get(r.apartment_id) ?? "—"}</td>
                   <td className="px-3 py-2.5">{r.apartments?.resident_surname}</td>
                   <td className="px-3 py-2.5">{r.billing_periods ? periodLabel(r.billing_periods) : "—"}</td>
                   <td className="tabular px-3 py-2.5 text-right font-semibold">{formatMoney(r.total_amount)}</td>

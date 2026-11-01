@@ -9,6 +9,8 @@ import { PaymentStatusBadge } from "@/components/ui/status";
 import { PeriodPicker } from "@/components/period-picker";
 import { WindowNotice } from "@/components/charges";
 import { AdminReadingEditor } from "@/components/admin/reading-editor";
+import { EntranceFilter } from "@/components/admin/entrance-controls";
+import { matchesEntrance, parseEntranceFilter } from "@/lib/entrance";
 
 export const metadata: Metadata = { title: "Показники" };
 
@@ -24,7 +26,8 @@ export default async function AdminReadingsPage({ searchParams }: PageProps<"/ad
       </>
     );
   }
-  const rows = await getPeriodTable(period.id);
+  const entrance = parseEntranceFilter(sp.entrance);
+  const rows = (await getPeriodTable(period.id)).filter((r) => matchesEntrance(r.entrance, entrance));
   const missing = rows.filter((r) => !r.has_reading);
   const editable = period.status !== "closed" || period.allow_admin_edit_after_close;
 
@@ -32,7 +35,10 @@ export default async function AdminReadingsPage({ searchParams }: PageProps<"/ad
     <>
       <PageHeader title="Показники" description={`Подали ${rows.length - missing.length} з ${rows.length}. Без показників: ${missing.map((m) => m.apartment_number).join(", ") || "немає"}.`} />
       <div className="mb-4 flex flex-col gap-3">
-        <PeriodPicker periods={periods} selectedId={period.id} />
+        <div className="flex flex-wrap items-end gap-3">
+          <PeriodPicker periods={periods} selectedId={period.id} />
+          <EntranceFilter />
+        </div>
         <WindowNotice period={period} isAdmin />
       </div>
       <div className="overflow-x-auto rounded-[var(--radius-panel)] border border-line bg-surface">
@@ -40,6 +46,7 @@ export default async function AdminReadingsPage({ searchParams }: PageProps<"/ad
           <thead className="bg-casing text-left text-sm text-ink-soft">
             <tr>
               <th className="px-3 py-2.5 font-medium">Кв.</th>
+              <th className="px-3 py-2.5 text-center font-medium">Під&apos;їзд</th>
               <th className="px-3 py-2.5 font-medium">Прізвище</th>
               <th className="px-3 py-2.5 text-right font-medium">Попередній</th>
               <th className="px-3 py-2.5 text-right font-medium">Поточний</th>
@@ -54,6 +61,7 @@ export default async function AdminReadingsPage({ searchParams }: PageProps<"/ad
             {rows.map((r) => (
               <tr key={r.apartment_id} className="border-t border-line">
                 <td className="px-3 py-2.5 font-semibold">{r.apartment_number}</td>
+                <td className="tabular px-3 py-2.5 text-center">{r.entrance ?? "—"}</td>
                 <td className="px-3 py-2.5">{r.resident_surname}</td>
                 <td className="tabular px-3 py-2.5 text-right">{r.has_reading ? formatReading(r.previous_reading) : "—"}</td>
                 <td className="tabular px-3 py-2.5 text-right">{r.has_reading ? formatReading(r.current_reading) : <span className="text-warn">Не внесено</span>}</td>

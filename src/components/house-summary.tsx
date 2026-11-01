@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { Notice, Panel, Row } from "@/components/ui/controls";
 import { Tag } from "@/components/ui/status";
 import { fromDb, formatKwh, formatMoney, formatReading, formatTariff } from "@/lib/money";
@@ -38,20 +39,76 @@ function CoverageBar({ common, apartments }: { common: bigint; apartments: bigin
   );
 }
 
+/** Посилання на спільний конверт — щоб будь-коли переглянути баланс. */
+export function EnvelopeLink({ url }: { url: string | null | undefined }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-control)] bg-signal px-3 text-sm font-semibold text-ink hover:brightness-95"
+    >
+      <ExternalLink className="size-4" aria-hidden />
+      Конверт: переглянути баланс
+    </a>
+  );
+}
+
+/**
+ * Збори за місяць: електроенергія квартир і окремо внески поза нею
+ * (депозит, освітлення під'їзду, інші) — скільки на конверті понад лічильники квартир.
+ */
+function CollectionsSection({ summary }: { summary: HouseSummary }) {
+  if (summary.charged_total === undefined) return null; // база ще без цих полів
+  const other = fromDb(summary.charged_other ?? 0, 2) ?? 0n;
+  const paidTotal = fromDb(summary.paid_total ?? 0, 2) ?? 0n;
+  return (
+    <section aria-label="Збори за місяць" className="mt-5 border-t border-line pt-4">
+      <h3 className="mb-1 font-semibold">Збори з квартир за місяць</h3>
+      <div className="grid gap-x-5 md:grid-cols-2">
+        <dl>
+          <Row label="За електроенергію (за лічильниками квартир)" value={formatMoney(summary.apartments_amount ?? 0)} />
+          <Row label="Депозит" value={formatMoney(summary.charged_deposit ?? 0)} />
+          <Row label="Освітлення під'їзду" value={formatMoney(summary.charged_hall_lighting ?? 0)} />
+          {other > 0n && <Row label="Інші внески" value={formatMoney(summary.charged_other ?? 0)} />}
+        </dl>
+        <dl>
+          <Row
+            label={other > 0n ? "Понад електроенергію (депозит + освітлення + інші)" : "Понад електроенергію (депозит + освітлення)"}
+            value={formatMoney(summary.charged_extras ?? 0)}
+            strong
+          />
+          <Row label="Усього нараховано квартирам" value={formatMoney(summary.charged_total ?? 0)} />
+          <Row label="Підтверджено оплат" value={formatMoney(summary.paid_total ?? 0)} />
+          {paidTotal > 0n && <Row label="з них понад електроенергію" value={formatMoney(summary.paid_extras ?? 0)} />}
+        </dl>
+      </div>
+      <p className="mt-1 text-sm text-ink-soft">
+        «Понад електроенергію» — кошти на конверті, що не покривають лічильники квартир: депозит і освітлення під&apos;їзду.
+      </p>
+    </section>
+  );
+}
+
 /** Блок «Будинок»: загальний лічильник, різниця з квартирами, борг у гривнях, депозит. */
 export function HouseSummaryPanel({
   summary,
   compact,
   failed,
+  envelopeUrl,
 }: {
   summary: HouseSummary | null;
   compact?: boolean;
   /** Запит до бази завершився помилкою (напр. не застосовано міграцію) */
   failed?: boolean;
+  /** Посилання на конверт із налаштувань — показується завжди, навіть без даних будинку */
+  envelopeUrl?: string | null;
 }) {
+  const envelope = summary?.envelope_url ?? envelopeUrl ?? null;
   if (failed) {
     return (
-      <Panel title="Будинок" description="Загальний лічильник, різниця з квартирами, борг і депозит">
+      <Panel title="Будинок" description="Загальний лічильник, різниця з квартирами, борг і депозит" actions={<EnvelopeLink url={envelope} />}>
         <Notice tone="warn" title="Не вдалося завантажити дані будинку">
           Спробуйте оновити сторінку пізніше. Якщо повідомлення не зникає, зверніться до адміністратора: у базі даних може бракувати
           оновлення <span className="whitespace-nowrap">20261018000001_house_summary.sql</span>.
@@ -59,12 +116,18 @@ export function HouseSummaryPanel({
       </Panel>
     );
   }
-  if (!summary) return null;
+  if (!summary) {
+    return envelope ? (
+      <Panel title="Будинок" actions={<EnvelopeLink url={envelope} />}>
+        <p className="text-ink-soft">Даних будинку ще немає.</p>
+      </Panel>
+    ) : null;
+  }
   const title = summary.period ? `Будинок: ${summary.period.label.toLowerCase()}` : "Будинок";
 
   if (!summary.has_common) {
     return (
-      <Panel title={title} description="Загальний лічильник, за яким будинок платить постачальнику">
+      <Panel title={title} description="Загальний лічильник, за яким будинок платить постачальнику" actions={<EnvelopeLink url={envelope} />}>
         <p className="text-ink-soft">
           {summary.period
             ? "Показник загального лічильника за цей місяць адміністратор ще не вніс."
@@ -75,6 +138,7 @@ export function HouseSummaryPanel({
             <Row label="Баланс депозиту будинку" value={formatMoney(summary.deposit_balance)} strong />
           </dl>
         )}
+        {summary.period && <CollectionsSection summary={summary} />}
       </Panel>
     );
   }
@@ -92,7 +156,8 @@ export function HouseSummaryPanel({
       title={title}
       description="Загальний лічильник, за яким будинок фактично платить постачальнику, і різниця з показниками квартир"
       actions={
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <EnvelopeLink url={envelope} />
           {summary.is_preliminary && <Tag tone="warn">Неповні дані</Tag>}
           {status && status !== "calculated" && <Tag tone={status === "reviewed" ? "face" : "ok"}>{RECONCILIATION_STATUS_LABEL[status]}</Tag>}
         </div>
@@ -136,7 +201,7 @@ export function HouseSummaryPanel({
             <p className="text-ink-soft">Тариф для цього місяця не визначено.</p>
           ) : (
             <dl>
-              <Row label="До сплати за загальним лічильником" value={formatMoney(summary.common_amount)} />
+              <Row label="Сума будинку за світло (загальний лічильник)" value={formatMoney(summary.common_amount)} strong />
               <Row label="Нараховано квартирам за електроенергію" value={formatMoney(summary.apartments_amount)} />
               <Row
                 label={debt !== null && debt > 0n ? "Борг: не покрито квартирами" : "Різниця"}
@@ -162,6 +227,8 @@ export function HouseSummaryPanel({
           )}
         </section>
       </div>
+
+      <CollectionsSection summary={summary} />
 
       <div className="mt-4 flex flex-col gap-2">
         {summary.is_preliminary && (

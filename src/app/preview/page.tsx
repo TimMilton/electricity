@@ -69,7 +69,7 @@ export default async function PreviewPage({ searchParams }: PageProps<"/preview"
           <aside className="hidden w-60 shrink-0 md:block"><SideNav set="admin" /></aside>
           <main className="min-w-0 flex-1">
             <div className="mb-4 md:hidden"><ScrollNav set="admin" /></div>
-            <AdminOverviewView period={demoPeriod} periods={[demoPeriod]} report={demoReport} />
+            <AdminOverviewView period={demoPeriod} periods={[demoPeriod]} report={demoReport} house={demoHouse} />
           </main>
         </div>
       </div>

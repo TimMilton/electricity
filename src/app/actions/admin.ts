@@ -21,7 +21,7 @@ import {
   tariffSchema,
 } from "@/lib/validation";
 import { kyivLocalToIso } from "@/lib/utils";
-import { RECEIPTS_BUCKET } from "@/lib/receipts";
+import { RECEIPTS_BUCKET, removeObjects } from "@/lib/receipts";
 import { randomBytes } from "node:crypto";
 import { apartmentLoginEmail, generateAccessCode, normalizeAccessCode } from "@/lib/access-code";
 import type { ActionResult } from "@/lib/types";
@@ -581,5 +581,26 @@ export async function saveSettingsAction(input: unknown, reason?: string): Promi
     }
     refresh();
     return { ok: true, message: "Налаштування збережено" };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Квитанції
+// ---------------------------------------------------------------------------
+export async function deleteReceiptAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ receiptId: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { data, error } = await supabase.rpc("admin_delete_receipt", {
+      p_receipt_id: parsed.data.receiptId,
+      p_reason: parsed.data.reason,
+    });
+    if (error) return dbErrorToResult(error);
+    const res = data as { storage_path?: string; warnings?: string[] } | null;
+    // Запис уже видалено й записано в журнал; файл прибираємо зі сховища сервісним ключем
+    if (res?.storage_path) await removeObjects([res.storage_path]);
+    refresh();
+    return { ok: true, message: "Квитанцію видалено", warnings: res?.warnings ?? [] };
   });
 }

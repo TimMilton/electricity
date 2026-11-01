@@ -41,7 +41,7 @@ export default async function AdminReceiptsPage({ searchParams }: PageProps<"/ad
 
   return (
     <>
-      <PageHeader title="Квитанції" description="Завантажені квитанції за місяць. Посилання на перегляд діють кілька хвилин." />
+      <PageHeader title="Квитанції" description="Завантажені квитанції за місяць. Посилання на перегляд діють кілька хвилин. Помилкову квитанцію можна видалити — з причиною, вона залишиться в журналі змін." />
       <div className="mb-4">
         <PeriodPicker periods={periods} selectedId={periodId} />
       </div>
@@ -60,7 +60,7 @@ export default async function AdminReceiptsPage({ searchParams }: PageProps<"/ad
               <p className="mb-2 text-sm text-ink-soft">
                 {r.payments?.billing_periods ? periodLabel(r.payments.billing_periods) : ""}, завантажено {formatDateTime(r.created_at)}
               </p>
-              <ReceiptList receipts={[views[i]!]} compact />
+              <ReceiptList receipts={[views[i]!]} compact deletable />
             </Panel>
           ))}
         </div>

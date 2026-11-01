@@ -27,6 +27,7 @@ export default async function HomePage() {
       deposit={deposit as { is_public: boolean; balance: number | null } | null}
       house={house as HouseSummary | null}
       houseFailed={Boolean(houseError)}
+      envelopeUrl={settings.envelope_url}
       state={state}
     />
   );

@@ -45,7 +45,7 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
       )}
       {period ? (
         <div className="flex flex-col gap-5">
-          <HouseSummaryPanel summary={house} failed={houseFailed} compact />
+          <HouseSummaryPanel summary={house} failed={houseFailed} envelopeUrl={settings.envelope_url} compact />
           <ResidentsTable rows={await getPeriodTable(period.id)} periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
         </div>
       ) : (

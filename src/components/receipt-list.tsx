@@ -1,13 +1,25 @@
 import { ExternalLink, FileText } from "lucide-react";
 import type { ReceiptView } from "@/lib/receipts";
 import { formatDateTime } from "@/lib/utils";
+import { DeleteReceiptButton } from "@/components/admin/delete-receipt-button";
 
 function size(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} МБ` : `${Math.max(1, Math.round(bytes / 1024))} КБ`;
 }
 
 /** Квитанції з попереднім переглядом. Посилання підписані й діють кілька хвилин. */
-export function ReceiptList({ receipts, compact }: { receipts: ReceiptView[]; compact?: boolean }) {
+export function ReceiptList({
+  receipts,
+  compact,
+  deletable,
+  onDeleted,
+}: {
+  receipts: ReceiptView[];
+  compact?: boolean;
+  /** Показати кнопку «Видалити» (лише для адміністратора) */
+  deletable?: boolean;
+  onDeleted?: () => void;
+}) {
   return (
     <ul className="flex flex-col gap-2">
       {receipts.map((r) => (
@@ -42,6 +54,7 @@ export function ReceiptList({ receipts, compact }: { receipts: ReceiptView[]; co
           ) : (
             <span className="text-sm text-ink-soft">Недоступно</span>
           )}
+          {deletable && <DeleteReceiptButton receiptId={r.id} filename={r.original_filename} onDeleted={onDeleted} />}
         </li>
       ))}
     </ul>

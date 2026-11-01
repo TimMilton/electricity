@@ -7,6 +7,8 @@ import { Button, EmptyState, PageHeader, Panel } from "@/components/ui/controls"
 import { Tag } from "@/components/ui/status";
 import { ApartmentEditor, BulkCodes, CodeButton, ImportApartments, UserActions } from "@/components/admin/apartments";
 import { enterViewAsAction } from "@/app/actions/admin";
+import { EntranceFilter, EntranceSelect } from "@/components/admin/entrance-controls";
+import { getEntranceMap, matchesEntrance, parseEntranceFilter } from "@/lib/entrance";
 
 export const metadata: Metadata = { title: "Квартири та мешканці" };
 
@@ -39,26 +41,44 @@ type UserRow = {
 };
 
 
-export default async function AdminApartmentsPage() {
+export default async function AdminApartmentsPage({ searchParams }: PageProps<"/admin/apartments">) {
   const session = await requireAdmin();
+  const sp = await searchParams;
+  const entranceFilter = parseEntranceFilter(sp.entrance);
   const supabase = await createClient();
-  const [{ data: apts }, { data: users }] = await Promise.all([supabase.rpc("admin_list_apartments"), supabase.rpc("admin_list_users")]);
-  const apartments = (apts ?? []) as AptRow[];
+  const [{ data: apts }, { data: users }, entrances] = await Promise.all([
+    supabase.rpc("admin_list_apartments"),
+    supabase.rpc("admin_list_users"),
+    getEntranceMap(supabase),
+  ]);
+  const allApartments = (apts ?? []) as AptRow[];
+  const apartments = allApartments.filter((a) => matchesEntrance(entrances.get(a.id), entranceFilter));
+  const entranceCounts = [1, 2, 3].map((n) => allApartments.filter((a) => entrances.get(a.id) === n).length);
+  const noEntrance = allApartments.filter((a) => entrances.get(a.id) == null).length;
   const userRows = (users ?? []) as UserRow[];
 
   return (
     <>
       <PageHeader title="Квартири та мешканці" actions={<ApartmentEditor />} />
       <div className="flex flex-col gap-5">
-        <Panel title={`Квартири (${apartments.length})`}>
+        <Panel
+          title={`Квартири (${entranceFilter ? `${apartments.length} з ${allApartments.length}` : allApartments.length})`}
+          description={`Під'їзд 1: ${entranceCounts[0]}, під'їзд 2: ${entranceCounts[1]}, під'їзд 3: ${entranceCounts[2]}${noEntrance ? `, не вказано: ${noEntrance}` : ""}. Під'їзд можна змінити в таблиці — зберігається одразу.`}
+          actions={<EntranceFilter />}
+        >
           {apartments.length === 0 ? (
-            <EmptyState title="Квартир ще немає">Додайте квартири вручну або імпортуйте список нижче.</EmptyState>
+            allApartments.length > 0 ? (
+              <EmptyState title="Квартир із таким під'їздом немає">Змініть фільтр під&apos;їзду.</EmptyState>
+            ) : (
+              <EmptyState title="Квартир ще немає">Додайте квартири вручну або імпортуйте список нижче.</EmptyState>
+            )
           ) : (
             <div className="-mx-4 overflow-x-auto sm:-mx-5">
-              <table className="w-full min-w-[820px] text-[15px]">
+              <table className="w-full min-w-[900px] text-[15px]">
                 <thead className="bg-casing text-left text-sm text-ink-soft">
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Кв.</th>
+                    <th className="px-3 py-2.5 font-medium">Під&apos;їзд</th>
                     <th className="px-3 py-2.5 font-medium">Прізвище</th>
                     <th className="px-3 py-2.5 font-medium">Доступ</th>
                     <th className="px-3 py-2.5 text-right font-medium">Початковий показник</th>
@@ -69,6 +89,9 @@ export default async function AdminApartmentsPage() {
                   {apartments.map((a) => (
                     <tr key={a.id} className={`border-t border-line ${a.is_active ? "" : "text-ink-soft"}`}>
                       <td className="px-4 py-2.5 font-semibold">{a.apartment_number}</td>
+                      <td className="px-3 py-1.5">
+                        <EntranceSelect key={`${a.id}-${entrances.get(a.id) ?? ""}`} apartmentId={a.id} number={a.apartment_number} entrance={entrances.get(a.id) ?? null} />
+                      </td>
                       <td className="px-3 py-2.5">
                         {a.resident_surname}
                         {!a.is_active && <span className="ml-2"><Tag>Неактивна</Tag></span>}

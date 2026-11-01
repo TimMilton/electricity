@@ -108,7 +108,11 @@ export function ChargeDialog({
                 <div>
                   <h3 className="mb-2 font-semibold">Квитанції</h3>
                   {details.privateInfo.receipts.length ? (
-                    <ReceiptList receipts={details.privateInfo.receipts} />
+                    <ReceiptList
+                      receipts={details.privateInfo.receipts}
+                      deletable={details.isAdmin}
+                      onDeleted={() => setReloadKey((k) => k + 1)}
+                    />
                   ) : (
                     <p className="text-ink-soft">Квитанцію не завантажено</p>
                   )}

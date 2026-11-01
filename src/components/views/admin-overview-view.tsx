@@ -5,10 +5,26 @@ import { formatDateTime, periodLabel } from "@/lib/utils";
 import { Button, Notice, PageHeader, Panel, Row } from "@/components/ui/controls";
 import { PeriodPicker, Stat } from "@/components/period-picker";
 import { WindowNotice } from "@/components/charges";
-import { RECONCILIATION_STATUS_LABEL, type BillingPeriod, type HouseReport } from "@/lib/types";
+import { RECONCILIATION_STATUS_LABEL, type BillingPeriod, type HouseReport, type HouseSummary } from "@/lib/types";
+import { HouseSummaryPanel } from "@/components/house-summary";
 
 /** Огляд адміністратора (без звернень до даних). */
-export function AdminOverviewView({ period, periods, report: r }: { period: BillingPeriod; periods: BillingPeriod[]; report: HouseReport }) {
+export function AdminOverviewView({
+  period,
+  periods,
+  report: r,
+  house,
+  houseFailed,
+  envelopeUrl,
+}: {
+  period: BillingPeriod;
+  periods: BillingPeriod[];
+  report: HouseReport;
+  /** Те саме зведення «Будинок», що бачать мешканці */
+  house?: HouseSummary | null;
+  houseFailed?: boolean;
+  envelopeUrl?: string | null;
+}) {
   const extra = r.charges.deposit + r.charges.hall_lighting + r.charges.other;
 
   return (
@@ -47,6 +63,12 @@ export function AdminOverviewView({ period, periods, report: r }: { period: Bill
         <Stat label="Відхилено" value={r.payments.rejected_count} hint={formatMoney(r.payments.rejected_total)} tone={r.payments.rejected_count ? "danger" : undefined} />
         <Stat label="Баланс депозиту" value={formatMoney(r.deposit.current_balance)} />
       </div>
+
+      {(house !== undefined || houseFailed || envelopeUrl) && (
+        <div className="mt-5">
+          <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} compact />
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Panel

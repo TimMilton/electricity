@@ -25,9 +25,10 @@ beforeAll(async () => {
 afterAll(async () => db?.destroy());
 
 describe("Зведення по будинку в кабінеті мешканця", () => {
-  it("без показника загального лічильника — порожнє зведення", async () => {
+  it("без показника загального лічильника — зведення за поточним місяцем без даних лічильника", async () => {
     const s = await summary(res[0]!.uid);
-    expect(s).toMatchObject({ period: null, has_common: false, deposit_public: true });
+    expect(s).toMatchObject({ has_common: false, deposit_public: true, common_kwh: null });
+    expect(s.period.id).toBe(period);
     const forPeriod = await summary(res[0]!.uid, period);
     expect(forPeriod).toMatchObject({ has_common: false, common_kwh: null, discrepancy_amount: null });
     expect(forPeriod.period.label).toBe("Вересень 2026");
