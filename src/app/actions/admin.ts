@@ -380,15 +380,15 @@ export async function updateTariffAction(input: unknown): Promise<ActionResult> 
   });
 }
 
-export async function deleteFutureTariffAction(input: unknown): Promise<ActionResult> {
+export async function deleteTariffAction(input: unknown): Promise<ActionResult> {
   return guard(async () => {
-    const parsed = z.object({ tariffId: uuid, reason: optionalReason }).safeParse(input);
+    const parsed = z.object({ tariffId: uuid, reason: requiredReason }).safeParse(input);
     if (!parsed.success) return zodToResult(parsed.error.issues);
     const supabase = await admin();
-    const { error } = await supabase.rpc("admin_delete_future_tariff", { p_tariff_id: parsed.data.tariffId, p_reason: parsed.data.reason });
+    const { data, error } = await supabase.rpc("admin_delete_tariff", { p_tariff_id: parsed.data.tariffId, p_reason: parsed.data.reason });
     if (error) return dbErrorToResult(error);
     refresh();
-    return { ok: true, message: "Майбутній тариф видалено" };
+    return { ok: true, message: "Тариф видалено", warnings: (data as { warnings?: string[] } | null)?.warnings ?? [] };
   });
 }
 

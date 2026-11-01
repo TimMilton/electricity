@@ -5,7 +5,7 @@ import {
   closePeriodAction,
   createNextPeriodAction,
   createPeriodAction,
-  deleteFutureTariffAction,
+  deleteTariffAction,
   reopenPeriodAction,
   setTariffAction,
   updatePeriodAction,
@@ -188,16 +188,36 @@ export function TariffForm({ today }: { today: string }) {
   );
 }
 
-export function DeleteTariffButton({ tariffId }: { tariffId: string }) {
-  const { run } = useAction();
+export function DeleteTariffButton({ tariffId, label }: { tariffId: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const { run, pending, error, fieldErrors } = useAction();
+  const [reason, setReason] = useState("");
   return (
-    <ConfirmDialog
-      trigger={<Button size="sm" variant="ghost">Видалити</Button>}
-      title="Видалити майбутній тариф?"
-      confirmLabel="Видалити"
-      tone="danger"
-      onConfirm={() => run(() => deleteFutureTariffAction({ tariffId }))}
-    />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="text-danger">Видалити</Button>
+      </DialogTrigger>
+      <DialogContent title="Видалити тариф?">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (await run(() => deleteTariffAction({ tariffId, reason }))) setOpen(false);
+          }}
+        >
+          <p className="text-[15px]">{label}</p>
+          <p className="text-sm text-ink-soft">
+            Попередній тариф автоматично діятиме до початку наступного. Уже збережені нарахування не зміняться. Видалений тариф
+            залишиться в журналі змін.
+          </p>
+          <Field label="Причина (обов'язково)" htmlFor={`dt-reason-${tariffId}`} error={fieldErrors.reason}>
+            <Input id={`dt-reason-${tariffId}`} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <Button type="submit" variant="danger" disabled={pending} className="self-start">Видалити тариф</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

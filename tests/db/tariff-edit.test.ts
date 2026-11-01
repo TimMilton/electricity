@@ -64,10 +64,39 @@ describe("Виправлення тарифу", () => {
     expect(stored).toEqual({ t: "4.3200", e: "432.00" });
   });
 
+  it("видалення будь-якого тарифу: попередній продовжується, нарахування не змінюються", async () => {
+    // зараз: 4.5 з 01.10.2026 до 31.10.2026, 5 з 01.11.2026
+    await db.setTariff(admin, "6", "2027-03-01");
+    const ids = (await db.sql(`select id from tariffs order by valid_from`)).rows.map((r) => r.id as string);
+    const del = async (id: string, reason: string | null = "Дублікат") =>
+      (await db.as<{ r: Record<string, any> }>(admin, `select public.admin_delete_tariff($1, $2) r`, [id, reason])).rows[0]!.r;
+
+    await expectDbError(del(ids[1]!, null), /причину/);
+    // середній: попередній продовжується до початку наступного
+    await del(ids[1]!);
+    expect(await tariffs()).toEqual([
+      { r: "4.5000", f: "2026-10-01", u: "2027-02-28" },
+      { r: "6.0000", f: "2027-03-01", u: null },
+    ]);
+    // останній (чинний): попередній знову діє без кінця
+    await del(ids[2]!);
+    expect(await tariffs()).toEqual([{ r: "4.5000", f: "2026-10-01", u: null }]);
+    // перший — із показником за жовтень: попередження, нарахування без змін
+    const res = await del(ids[0]!, "Помилкова ставка");
+    expect(res.warnings.join(" ")).toMatch(/Тарифів не залишилося/);
+    expect(res.warnings.join(" ")).toMatch(/1 збережен.*не перераховано/);
+    expect((await db.sql(`select tariff_rate::text t, electricity_amount::text e from meter_readings`)).rows[0]).toEqual({ t: "4.3200", e: "432.00" });
+    const log = await db.sql(`select count(*)::int c from audit_logs where action_type = 'tariff.delete'`);
+    expect(log.rows[0]!.c).toBe(3);
+    // після видалення можна встановити тариф з будь-якої дати
+    await db.setTariff(admin, "4.32", "2026-10-01");
+  });
+
   it("мешканцю недоступно", async () => {
     const apt = await db.createApartment(admin, "2", "Інший", "0");
     const uid = await db.registerResident(admin, apt, "Інший");
     const id = (await db.sql(`select id from tariffs limit 1`)).rows[0]!.id as string;
     await expectDbError(db.as(uid, `select public.admin_update_tariff($1, 1, '2026-10-01', 'тест')`, [id]), /лише адміністратору/);
+    await expectDbError(db.as(uid, `select public.admin_delete_tariff($1, 'тест')`, [id]), /лише адміністратору/);
   });
 });

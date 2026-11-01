@@ -16,7 +16,16 @@ export function dbErrorToResult(error: DbError): Extract<ActionResult, { ok: fal
   if (error.code === "42501") return { ok: false, error: "Недостатньо прав для цієї дії" };
   if (error.code === "23505") return { ok: false, error: "Такий запис уже існує" };
   if (error.code === "23514") return { ok: false, error: "Дані не пройшли перевірку. Перевірте введені значення" };
-  if (process.env.NODE_ENV !== "production") console.error("DB error", error);
+  // Код застосунку новіший за базу: функцію або стовпчик ще не створено міграцією
+  if (error.code === "PGRST202" || error.code === "42883" || error.code === "42703" || error.code === "PGRST204") {
+    console.error("DB schema outdated:", error.code, error.message);
+    return {
+      ok: false,
+      error: "База даних не оновлена для цієї версії застосунку. Виконайте в Supabase → SQL Editor нові файли з папки supabase/migrations (див. README)",
+    };
+  }
+  // Код і текст технічної помилки — лише в журнал сервера (Railway → Logs)
+  console.error("DB error:", error.code, error.message);
   return { ok: false, error: GENERIC };
 }
 

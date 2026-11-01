@@ -117,7 +117,10 @@ export default async function PeriodsPage() {
                   </div>
                   <div className="flex gap-2">
                     <EditTariffButton tariffId={t.id} rate={String(t.rate_per_kwh)} validFrom={t.valid_from} />
-                    {t.valid_from > todayKyiv && <DeleteTariffButton tariffId={t.id} />}
+                    <DeleteTariffButton
+                      tariffId={t.id}
+                      label={`${formatTariff(t.rate_per_kwh)} з ${formatDate(t.valid_from)}${t.valid_until ? ` до ${formatDate(t.valid_until)}` : ""}`}
+                    />
                   </div>
                 </li>
               ))}

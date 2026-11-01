@@ -83,11 +83,21 @@ export const getActingContext = cache(async (): Promise<ActingContext | null> =>
     }
   }
   if (!apartmentId) return null;
-  const { data: apartment } = await supabase
+  const base = "id, apartment_number, resident_surname, is_active, registration_status";
+  const res = await supabase
     .from("apartments")
-    .select("id, apartment_number, resident_surname, is_active, registration_status, entrance")
+    .select(`${base}, entrance`)
     .eq("id", apartmentId)
     .maybeSingle<Apartment>();
+  let apartment = res.data;
+  const error = res.error;
+  if (error) {
+    // Міграцію з під'їздом ще не застосовано (немає стовпчика) — працюємо без нього,
+    // щоб вхід і перегляд не ламалися через порядок оновлення бази та коду.
+    console.error("getActingContext apartments:", error.code, error.message);
+    const fallback = await supabase.from("apartments").select(base).eq("id", apartmentId).maybeSingle<Omit<Apartment, "entrance">>();
+    apartment = fallback.data ? { ...fallback.data, entrance: null } : null;
+  }
   if (!apartment) return null;
   return { session, apartment, viewAs };
 });
