@@ -40,7 +40,7 @@ export function EntrancePicker({ apartmentId, entrance }: { apartmentId?: string
       <p className="mt-1 flex flex-wrap items-center gap-2 text-[15px]">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-casing px-3 py-1 font-semibold">
           <DoorOpen className="size-4 text-face" aria-hidden />
-          Під&apos;їзд {value}
+          Ваш під&apos;їзд: {value}
         </span>
         {apartmentId && (
           <button type="button" onClick={() => setOpen(true)} className="text-sm text-face underline underline-offset-4">

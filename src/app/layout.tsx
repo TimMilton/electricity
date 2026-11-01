@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
+import { APP_FULL_NAME } from "@/lib/app-name";
 
 export const metadata: Metadata = {
-  title: { default: "Електрооблік будинку", template: "%s — Електрооблік будинку" },
-  description: "Облік показників лічильників, внесків і оплат мешканців будинку",
+  title: { default: APP_FULL_NAME, template: `%s — ${APP_FULL_NAME}` },
+  description: `Облік показників лічильників, внесків і оплат мешканців будинку: ${APP_FULL_NAME}`,
+  applicationName: APP_FULL_NAME,
   robots: { index: false, follow: false },
 };
 

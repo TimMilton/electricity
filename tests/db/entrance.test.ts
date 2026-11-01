@@ -24,6 +24,11 @@ describe("Під'їзд квартири", () => {
     expect(await table(u1)).toEqual([{ apartment_number: "1", entrance: null }, { apartment_number: "2", entrance: null }]);
 
     await db.as(u1, `select public.set_apartment_entrance($1, 2)`, [a1]);
+    // застосунок читає під'їзд напряму з таблиці (права видано по стовпчиках)
+    const direct = await db.as<{ entrance: number | null }>(u1, `select entrance from public.apartments where id = $1`, [a1]);
+    expect(direct.rows[0]!.entrance).toBe(2);
+    const forAdmin = await db.as<{ entrance: number | null }>(admin, `select entrance from public.apartments where id = $1`, [a1]);
+    expect(forAdmin.rows[0]!.entrance).toBe(2);
     expect(await table(u2)).toEqual([{ apartment_number: "1", entrance: 2 }, { apartment_number: "2", entrance: null }]);
 
     // можна змінити

@@ -9,6 +9,9 @@ alter table public.apartments
   add column if not exists entrance smallint
   constraint apartments_entrance_range check (entrance between 1 and 3);
 
+-- Права на таблицю квартир видано по стовпчиках — додаємо новий
+grant select (entrance) on public.apartments to authenticated;
+
 create or replace function public.set_apartment_entrance(p_apartment_id uuid, p_entrance integer)
 returns public.apartments
 language plpgsql

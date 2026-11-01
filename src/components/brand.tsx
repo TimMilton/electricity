@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { APP_ADDRESS, APP_NAME } from "@/lib/app-name";
 
 export function BrandMark({ className }: { className?: string }) {
   return (
@@ -17,9 +18,16 @@ export function BrandMark({ className }: { className?: string }) {
 
 export function Brand({ href = "/", inverted }: { href?: string; inverted?: boolean }) {
   return (
-    <Link href={href} className={cn("flex items-center gap-2.5 font-display text-lg font-bold leading-none", inverted && "text-white")}>
+    <Link
+      href={href}
+      aria-label={`${APP_NAME} ${APP_ADDRESS}`}
+      className={cn("flex min-w-0 items-center gap-2.5 font-display leading-none", inverted && "text-white")}
+    >
       <BrandMark className={inverted ? "rounded-[9px] ring-2 ring-white/70" : undefined} />
-      <span>Електрооблік</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-lg font-bold">{APP_NAME}</span>
+        <span className={cn("truncate font-sans text-xs font-medium", inverted ? "text-white/75" : "text-ink-soft")}>{APP_ADDRESS}</span>
+      </span>
     </Link>
   );
 }
