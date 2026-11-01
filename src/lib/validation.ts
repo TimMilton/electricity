@@ -175,6 +175,8 @@ export const settingsSchema = z
       .string()
       .trim()
       .max(500)
+      // Посилання, скопійоване без «https://» (напр. send.monobank.ua/jar/…), доповнюємо
+      .transform((v) => (v !== "" && !/^[a-z][a-z0-9+.-]*:/i.test(v) ? `https://${v}` : v))
       .refine((v) => v === "" || /^https:\/\/[^\s]+$/i.test(v), "Посилання має починатися з https://"),
     max_receipt_size_mb: z.coerce.number().int().min(1).max(50),
     allowed_receipt_mime_types: z

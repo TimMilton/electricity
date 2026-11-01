@@ -10,14 +10,30 @@ import { Button, Notice } from "@/components/ui/controls";
 
 export const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
 
+/** Тип файлу; деякі телефони не повідомляють його — тоді визначаємо за розширенням. */
+function receiptMimeType(f: File): string {
+  if (f.type) return f.type === "image/jpg" ? "image/jpeg" : f.type;
+  const ext = f.name.split(".").pop()?.toLowerCase();
+  return ext === "pdf" ? "application/pdf"
+    : ext === "jpg" || ext === "jpeg" ? "image/jpeg"
+    : ext === "png" ? "image/png"
+    : ext === "webp" ? "image/webp"
+    : "";
+}
+
 /** Завантаження файлів у приватний бакет за шляхами, виданими сервером. */
 export async function uploadReceiptFiles(paymentId: string, files: File[]): Promise<
   { ok: true; uploads: { path: string; name: string }[] } | { ok: false; error: string }
 > {
-  const prep = await prepareReceiptUploadAction(
-    paymentId,
-    files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
-  );
+  const described = files.map((f) => ({ name: f.name, type: receiptMimeType(f), size: f.size }));
+  const heic = described.find((f) => /\.(heic|heif)$/i.test(f.name) || /hei[cf]/i.test(f.type));
+  if (heic) {
+    return {
+      ok: false,
+      error: `«${heic.name}»: формат HEIC (фото з iPhone) не підтримується. Надішліть скріншот квитанції або збережіть фото як JPEG`,
+    };
+  }
+  const prep = await prepareReceiptUploadAction(paymentId, described);
   if (!prep.ok) return { ok: false, error: prep.error };
   const { storageUrl, anonKey, uploads } = prep.data!;
   const supabase = createClient(storageUrl, anonKey, {

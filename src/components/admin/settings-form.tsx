@@ -47,7 +47,7 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
       <Panel title="Оплата">
         <div className="flex flex-col gap-4">
           <Field label="Посилання на спільний конверт" htmlFor="st-env" hint="Напр.: посилання на банку Monobank. Лише https." error={fieldErrors.envelope_url}>
-            <Input id="st-env" type="url" placeholder="https://" {...text("envelope_url")} />
+            <Input id="st-env" type="text" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://send.monobank.ua/jar/…" {...text("envelope_url")} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Максимальний розмір квитанції, МБ" htmlFor="st-size" error={fieldErrors.max_receipt_size_mb}>

@@ -26,6 +26,8 @@ export type Apartment = {
   resident_surname: string;
   is_active: boolean;
   registration_status: RegistrationStatus;
+  /** Під'їзд: 1, 2 або 3; null — ще не вказано */
+  entrance: number | null;
 };
 
 export type BillingPeriod = {
@@ -133,6 +135,7 @@ export type PeriodTableRow = {
   apartment_id: string;
   apartment_number: string;
   resident_surname: string;
+  entrance: number | null;
   has_reading: boolean;
   previous_reading: Num | null;
   current_reading: Num | null;

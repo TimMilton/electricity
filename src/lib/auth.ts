@@ -85,7 +85,7 @@ export const getActingContext = cache(async (): Promise<ActingContext | null> =>
   if (!apartmentId) return null;
   const { data: apartment } = await supabase
     .from("apartments")
-    .select("id, apartment_number, resident_surname, is_active, registration_status")
+    .select("id, apartment_number, resident_surname, is_active, registration_status, entrance")
     .eq("id", apartmentId)
     .maybeSingle<Apartment>();
   if (!apartment) return null;

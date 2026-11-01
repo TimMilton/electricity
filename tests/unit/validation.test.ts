@@ -60,6 +60,12 @@ describe("Валідація показників і внесків (Zod)", () =
     expect(settingsSchema.safeParse(base).success).toBe(true);
     expect(settingsSchema.safeParse({ ...base, envelope_url: "http://x.ua" }).success).toBe(false);
     expect(settingsSchema.safeParse({ ...base, envelope_url: "javascript:alert(1)" }).success).toBe(false);
+    // скопійоване без https:// — доповнюється
+    const noScheme = settingsSchema.safeParse({ ...base, envelope_url: " send.monobank.ua/jar/abc " });
+    expect(noScheme.success && noScheme.data.envelope_url).toBe("https://send.monobank.ua/jar/abc");
+    expect(settingsSchema.safeParse({ ...base, envelope_url: "send.monobank.ua/jar a b" }).success).toBe(false);
+    const empty = settingsSchema.safeParse({ ...base, envelope_url: "" });
+    expect(empty.success && empty.data.envelope_url).toBe("");
     expect(settingsSchema.safeParse({ ...base, default_window_end_day: 1, default_window_start_day: 5 }).success).toBe(false);
   });
 

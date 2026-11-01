@@ -38,9 +38,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
         ["Період", periodLabel(period!)],
         generated,
         [],
-        ["Квартира", "Прізвище", "Попередній", "Поточний", "Спожито, кВт·год", "Тариф", "Електроенергія", "Депозит", "Освітлення", "Інші", "Разом", "Статус", "Подано", "Підтверджено"],
+        ["Квартира", "Під'їзд", "Прізвище", "Попередній", "Поточний", "Спожито, кВт·год", "Тариф", "Електроенергія", "Депозит", "Освітлення", "Інші", "Разом", "Статус", "Подано", "Підтверджено"],
         ...rows.map((r) => [
-          r.apartment_number, r.resident_surname,
+          r.apartment_number, r.entrance ?? "", r.resident_surname,
           r.has_reading ? m(r.previous_reading) : "Не внесено", r.has_reading ? m(r.current_reading) : "",
           m(r.consumption_kwh), t4(r.tariff_rate), m(r.electricity_amount), m(r.deposit_contribution),
           m(r.hall_lighting_amount), m(r.other_amount), m(r.total_amount),

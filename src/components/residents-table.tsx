@@ -16,6 +16,7 @@ function sum(rows: PeriodTableRow[], key: keyof PeriodTableRow): bigint {
 export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTableRow[]; periodId: string; maxSizeMb: number }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"" | PaymentStatus | "no_reading">("");
+  const [entrance, setEntrance] = useState<"" | "1" | "2" | "3" | "none">("");
   const [desc, setDesc] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -23,6 +24,8 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
     const q = query.trim().toLowerCase();
     const list = rows.filter((r) => {
       if (q && !r.apartment_number.toLowerCase().includes(q) && !r.resident_surname.toLowerCase().includes(q)) return false;
+      if (entrance === "none" && r.entrance != null) return false;
+      if (entrance && entrance !== "none" && String(r.entrance) !== entrance) return false;
       if (status === "no_reading") return !r.has_reading;
       if (status && r.payment_status !== status) return false;
       return true;
@@ -36,7 +39,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
       return desc ? -d : d;
     });
     return list;
-  }, [rows, query, status, desc]);
+  }, [rows, query, status, entrance, desc]);
 
   const withReading = filtered.filter((r) => r.has_reading);
 
@@ -47,6 +50,16 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
           <span className="sr-only">Пошук за номером квартири або прізвищем</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft" aria-hidden />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Квартира або прізвище" className="pl-9" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium sm:w-44">
+          <span className="sr-only">Фільтр за під&apos;їздом</span>
+          <Select value={entrance} onChange={(e) => setEntrance(e.target.value as typeof entrance)}>
+            <option value="">Усі під&apos;їзди</option>
+            <option value="1">Під&apos;їзд 1</option>
+            <option value="2">Під&apos;їзд 2</option>
+            <option value="3">Під&apos;їзд 3</option>
+            <option value="none">Під&apos;їзд не вказано</option>
+          </Select>
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium sm:w-56">
           <span className="sr-only">Фільтр за статусом</span>
@@ -63,7 +76,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
       </div>
 
       <div className="overflow-x-auto rounded-[var(--radius-panel)] border border-line bg-surface">
-        <table className="w-full min-w-[1100px] border-collapse text-[15px]">
+        <table className="w-full min-w-[1180px] border-collapse text-[15px]">
           <caption className="sr-only">Показники та нарахування мешканців</caption>
           <thead className="bg-casing text-left text-sm text-ink-soft">
             <tr>
@@ -73,6 +86,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
                   <span className="sr-only">{desc ? "сортування за спаданням" : "сортування за зростанням"}</span>
                 </button>
               </th>
+              <th scope="col" className="px-3 py-2.5 text-center font-medium">Під&apos;їзд</th>
               <th scope="col" className="px-3 py-2.5 font-medium">Прізвище</th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">Попередній</th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">Поточний</th>
@@ -92,6 +106,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
                 <th scope="row" className={cn("sticky left-0 bg-surface px-3 py-2.5 text-left font-semibold", r.is_own && "bg-signal-soft")}>
                   {r.apartment_number}
                 </th>
+                <td className="tabular px-3 py-2.5 text-center">{r.entrance ?? <span className="text-ink-soft">—</span>}</td>
                 <td className="whitespace-nowrap px-3 py-2.5">
                   {r.resident_surname}
                   {r.is_own && <span className="ml-1 text-sm text-ink-soft">(ви)</span>}
@@ -129,7 +144,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-3 py-8 text-center text-ink-soft">
+                <td colSpan={13} className="px-3 py-8 text-center text-ink-soft">
                   Нічого не знайдено. Змініть пошук або фільтр.
                 </td>
               </tr>
@@ -141,6 +156,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
                 <th scope="row" className="sticky left-0 bg-casing px-3 py-2.5 text-left">
                   Разом
                 </th>
+                <td />
                 <td className="px-3 py-2.5 text-sm font-normal text-ink-soft">
                   внесли {withReading.length} з {filtered.length}
                 </td>

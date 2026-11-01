@@ -9,6 +9,7 @@ import {
   reopenPeriodAction,
   setTariffAction,
   updatePeriodAction,
+  updateTariffAction,
 } from "@/app/actions/admin";
 import { Button, Checkbox, Field, Input, Notice, Select } from "@/components/ui/controls";
 import { ConfirmDialog, Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -178,7 +179,8 @@ export function TariffForm({ today }: { today: string }) {
         <Input id="tf-reason" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} />
       </Field>
       <p className="text-sm text-ink-soft">
-        Тариф застосовується до періодів, що починаються з цієї дати. Уже внесені нарахування не перераховуються.
+        Тариф застосовується до місяців, що починаються з цієї дати: щоб він діяв, наприклад, для жовтня, вкажіть 01.10 або раніше.
+        Уже внесені нарахування не перераховуються.
       </p>
       {error && <Notice tone="danger">{error}</Notice>}
       <Button type="submit" disabled={pending} className="self-start">Встановити тариф</Button>
@@ -196,5 +198,44 @@ export function DeleteTariffButton({ tariffId }: { tariffId: string }) {
       tone="danger"
       onConfirm={() => run(() => deleteFutureTariffAction({ tariffId }))}
     />
+  );
+}
+
+export function EditTariffButton({ tariffId, rate, validFrom }: { tariffId: string; rate: string; validFrom: string }) {
+  const [open, setOpen] = useState(false);
+  const { run, pending, error, fieldErrors } = useAction();
+  const [f, setF] = useState({ rate, validFrom, reason: "" });
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">Змінити</Button>
+      </DialogTrigger>
+      <DialogContent title="Змінити тариф">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (await run(() => updateTariffAction({ tariffId, ...f }))) setOpen(false);
+          }}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Тариф, грн за кВт·год" htmlFor={`et-rate-${tariffId}`} error={fieldErrors.rate}>
+              <Input id={`et-rate-${tariffId}`} inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} />
+            </Field>
+            <Field label="Діє з" htmlFor={`et-from-${tariffId}`} error={fieldErrors.validFrom}>
+              <Input id={`et-from-${tariffId}`} type="date" value={f.validFrom} onChange={(e) => setF({ ...f, validFrom: e.target.value })} />
+            </Field>
+          </div>
+          <Field label="Причина (обов'язково)" htmlFor={`et-reason-${tariffId}`} error={fieldErrors.reason}>
+            <Input id={`et-reason-${tariffId}`} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} />
+          </Field>
+          <p className="text-sm text-ink-soft">
+            Тариф діє для місяця, якщо дата не пізніше його 1 числа. Уже збережені нарахування не перераховуються.
+          </p>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <Button type="submit" disabled={pending} className="self-start">Зберегти</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

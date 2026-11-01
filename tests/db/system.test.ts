@@ -24,6 +24,10 @@ describe("Системні задачі та поточний період", () 
   });
 
   it("поточний період: відкритий має пріоритет над запланованим і минулим", async () => {
+    // період, створений попереднім тестом, може бути відкритим залежно від сьогоднішньої дати
+    for (const r of (await db.sql(`select id from billing_periods where status <> 'closed'`)).rows) {
+      await db.as(admin, `select public.admin_close_period($1, null)`, [r.id]);
+    }
     await db.as(admin, `select public.admin_create_period(2031, 1, now() + interval '3 days', now() + interval '6 days', true)`);
     const open = await db.openPeriod(admin, 2030, 12);
     const cur = await db.as<{ id: string }>(admin, `select (public.get_current_period()).id`);

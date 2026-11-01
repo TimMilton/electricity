@@ -9,10 +9,12 @@ import { ChargeBreakdown, WindowNotice } from "@/components/charges";
 import { ReceiptList } from "@/components/receipt-list";
 import type { ReceiptView } from "@/lib/receipts";
 import { HouseSummaryPanel } from "@/components/house-summary";
+import { EntrancePicker } from "@/components/entrance-picker";
 import type { BillingPeriod, HouseSummary, MeterReading, Payment } from "@/lib/types";
 
 export type HomeViewProps = {
-  apartment: { apartment_number: string; resident_surname: string };
+  /** id не передається в попередньому перегляді — тоді під'їзд лише показується */
+  apartment: { id?: string; apartment_number: string; resident_surname: string; entrance?: number | null };
   period: BillingPeriod | null;
   isAdmin: boolean;
   otherEnabled: boolean;
@@ -34,7 +36,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
   if (!period || !state) {
     return (
       <div className="flex flex-col gap-5">
-        <ApartmentHeading number={apartment.apartment_number} surname={apartment.resident_surname} />
+        <ApartmentHeading apartment={apartment} />
         <EmptyState title="Розрахунковий період ще не створено">
           Адміністратор ще не відкрив приймання показників. Спробуйте пізніше.
         </EmptyState>
@@ -52,7 +54,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
 
   return (
     <div className="flex flex-col gap-5">
-      <ApartmentHeading number={ctx.apartment.apartment_number} surname={ctx.apartment.resident_surname} />
+      <ApartmentHeading apartment={ctx.apartment} />
 
       <section aria-labelledby="period-title" className="overflow-hidden rounded-[var(--radius-panel)] bg-face text-white">
         <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
@@ -190,11 +192,12 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
   );
 }
 
-function ApartmentHeading({ number, surname }: { number: string; surname: string }) {
+function ApartmentHeading({ apartment }: { apartment: HomeViewProps["apartment"] }) {
   return (
     <div>
-      <h1 className="font-display text-[28px] font-bold leading-tight sm:text-[32px]">Квартира №{number}</h1>
-      <p className="text-ink-soft">{surname}</p>
+      <h1 className="font-display text-[28px] font-bold leading-tight sm:text-[32px]">Квартира №{apartment.apartment_number}</h1>
+      <p className="text-ink-soft">{apartment.resident_surname}</p>
+      <EntrancePicker key={apartment.entrance ?? "none"} apartmentId={apartment.id} entrance={apartment.entrance ?? null} />
     </div>
   );
 }

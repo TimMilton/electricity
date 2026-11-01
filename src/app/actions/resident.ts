@@ -113,6 +113,27 @@ export async function submitPaymentAction(input: unknown): Promise<ActionResult>
   return { ok: true, message: "Платіж надіслано на перевірку" };
 }
 
+const entranceSchema = z.object({
+  apartmentId: uuid,
+  entrance: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]),
+});
+
+/** Під'їзд квартири: мешканець — для своєї, адміністратор — для будь-якої (перевіряє база). */
+export async function setEntranceAction(input: unknown): Promise<ActionResult> {
+  const parsed = entranceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Оберіть під'їзд: 1, 2 або 3" };
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Потрібно увійти в систему" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_apartment_entrance", {
+    p_apartment_id: parsed.data.apartmentId,
+    p_entrance: parsed.data.entrance,
+  });
+  if (error) return dbErrorToResult(error);
+  revalidateResident();
+  return { ok: true, message: parsed.data.entrance ? `Під'їзд ${parsed.data.entrance} збережено` : "Під'їзд прибрано" };
+}
+
 const addSchema = z.object({
   paymentId: uuid,
   uploads: z.array(z.object({ path: z.string().max(200), name: z.string().max(255) })).min(1).max(5),

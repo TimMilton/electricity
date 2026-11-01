@@ -363,6 +363,23 @@ export async function setTariffAction(input: unknown): Promise<ActionResult> {
   });
 }
 
+export async function updateTariffAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = tariffSchema.extend({ tariffId: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { data, error } = await supabase.rpc("admin_update_tariff", {
+      p_tariff_id: parsed.data.tariffId,
+      p_rate: parsed.data.rate,
+      p_valid_from: parsed.data.validFrom,
+      p_reason: parsed.data.reason,
+    });
+    if (error) return dbErrorToResult(error);
+    refresh();
+    return { ok: true, message: "Тариф змінено", warnings: (data as { warnings?: string[] } | null)?.warnings ?? [] };
+  });
+}
+
 export async function deleteFutureTariffAction(input: unknown): Promise<ActionResult> {
   return guard(async () => {
     const parsed = z.object({ tariffId: uuid, reason: optionalReason }).safeParse(input);

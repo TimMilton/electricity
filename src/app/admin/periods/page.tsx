@@ -4,9 +4,9 @@ import { getSettings, listPeriods, listTariffs } from "@/lib/data";
 import { periodPhase } from "@/lib/period";
 import { formatTariff } from "@/lib/money";
 import { formatDate, formatDateTime, periodLabel, toKyivLocalInput } from "@/lib/utils";
-import { EmptyState, PageHeader, Panel } from "@/components/ui/controls";
+import { EmptyState, Notice, PageHeader, Panel } from "@/components/ui/controls";
 import { Tag } from "@/components/ui/status";
-import { CreatePeriodForm, DeleteTariffButton, PeriodEditor, TariffForm } from "@/components/admin/periods";
+import { CreatePeriodForm, DeleteTariffButton, EditTariffButton, PeriodEditor, TariffForm } from "@/components/admin/periods";
 
 export const metadata: Metadata = { title: "Періоди й тарифи" };
 
@@ -25,6 +25,13 @@ export default async function PeriodsPage() {
   await requireAdmin();
   const [periods, tariffs, settings] = await Promise.all([listPeriods(), listTariffs(), getSettings()]);
   const todayKyiv = toKyivLocalInput(new Date()).slice(0, 10);
+  // Місяці, для яких немає чинного тарифу (тариф має діяти з 1 числа місяця)
+  const firstTariffFrom = tariffs.length ? tariffs.map((t) => t.valid_from).sort()[0]! : null;
+  const withoutTariff = periods.filter((p) => !firstTariffFrom || p.start_date < firstTariffFrom);
+  // Без тарифу — пропонуємо дату початку найранішого місяця, щоб тариф діяв і для нього
+  const tariffDefaultFrom = withoutTariff.length && !tariffs.length
+    ? withoutTariff.map((p) => p.start_date).sort()[0]!
+    : todayKyiv;
 
   // Типові значення для нового періоду
   const last = periods[0];
@@ -90,7 +97,13 @@ export default async function PeriodsPage() {
             <CreatePeriodForm defaults={defaults} />
           </Panel>
           <Panel title="Тарифи">
-            <TariffForm today={todayKyiv} />
+            {withoutTariff.length > 0 && (
+              <Notice tone="warn" className="mb-4" title="Місяці без тарифу">
+                {withoutTariff.map((p) => periodLabel(p)).join(", ")}: розрахунок неможливий. Тариф має діяти з 1 числа місяця
+                {firstTariffFrom ? " — натисніть «Змінити» біля тарифу й вкажіть ранішу дату" : ""}.
+              </Notice>
+            )}
+            <TariffForm today={tariffDefaultFrom} />
             <ul className="mt-5 divide-y divide-line border-t border-line">
               {tariffs.length === 0 && <li className="py-3 text-ink-soft">Тариф ще не встановлено — розрахунок неможливий.</li>}
               {tariffs.map((t) => (
@@ -102,7 +115,10 @@ export default async function PeriodsPage() {
                       {t.valid_until ? ` до ${formatDate(t.valid_until)}` : ", діє зараз"}
                     </p>
                   </div>
-                  {t.valid_from > todayKyiv && <DeleteTariffButton tariffId={t.id} />}
+                  <div className="flex gap-2">
+                    <EditTariffButton tariffId={t.id} rate={String(t.rate_per_kwh)} validFrom={t.valid_from} />
+                    {t.valid_from > todayKyiv && <DeleteTariffButton tariffId={t.id} />}
+                  </div>
                 </li>
               ))}
             </ul>

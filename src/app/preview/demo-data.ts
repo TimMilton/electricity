@@ -17,7 +17,7 @@ export const demoPeriod: BillingPeriod = {
   closed_at: null,
 };
 
-export const demoApartment = { apartment_number: "12", resident_surname: "Приклад" };
+export const demoApartment = { apartment_number: "12", resident_surname: "Приклад", entrance: 2 };
 
 export const demoReading: MeterReading = {
   id: "r1",
@@ -67,7 +67,7 @@ export const demoTable: PeriodTableRow[] = Array.from({ length: 12 }, (_, i) => 
   const num = String(i + 1);
   if (num === "12") {
     return {
-      apartment_id: "a12", apartment_number: "12", resident_surname: "Приклад", has_reading: true,
+      apartment_id: "a12", apartment_number: "12", resident_surname: "Приклад", entrance: 2, has_reading: true,
       previous_reading: "12345.67", current_reading: "12478.12", consumption_kwh: "132.45", tariff_rate: "4.3200",
       electricity_amount: "572.18", deposit_contribution: "50.00", hall_lighting_amount: "15.50", other_amount: "0.00",
       total_amount: "637.68", payment_id: "p1", payment_status: "awaiting_payment", submitted_at: null, reviewed_at: null,
@@ -81,7 +81,8 @@ export const demoTable: PeriodTableRow[] = Array.from({ length: 12 }, (_, i) => 
   const dep = [0, 50, 100, 30][i % 4]!;
   const hall = [10, 15, 20][i % 3]!;
   return {
-    apartment_id: `a${num}`, apartment_number: num, resident_surname: surnames[i]!, has_reading: !missing,
+    apartment_id: `a${num}`, apartment_number: num, resident_surname: surnames[i]!, entrance: i === 7 ? null : Math.floor(i / 4) + 1,
+    has_reading: !missing,
     previous_reading: missing ? null : money(prev), current_reading: missing ? null : money(prev + cons),
     consumption_kwh: missing ? null : money(cons), tariff_rate: missing ? null : "4.3200",
     electricity_amount: missing ? null : money(el), deposit_contribution: missing ? null : money(dep),
