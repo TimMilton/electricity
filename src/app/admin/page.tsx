@@ -5,6 +5,7 @@ import { getSettings, resolvePeriod } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/ui/controls";
 import { AdminOverviewView } from "@/components/views/admin-overview-view";
+import { getHouseReceiptViews } from "@/lib/house-receipts";
 import type { HouseReport, HouseSummary } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Огляд" };
@@ -27,10 +28,12 @@ export default async function AdminOverviewPage({ searchParams }: PageProps<"/ad
   }
 
   const supabase = await createClient();
-  const [{ data }, { data: house, error: houseError }, settings] = await Promise.all([
+  const [{ data }, { data: house, error: houseError }, settings, houseReceipts, topupsRes] = await Promise.all([
     supabase.rpc("get_admin_overview", { p_period_id: period.id }),
     supabase.rpc("get_house_summary", { p_period_id: period.id }),
     getSettings(),
+    getHouseReceiptViews(period.id),
+    supabase.from("deposit_topups").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
   ]);
   if (houseError) console.error("get_house_summary:", houseError.code, houseError.message);
   return (
@@ -41,6 +44,8 @@ export default async function AdminOverviewPage({ searchParams }: PageProps<"/ad
       house={house as HouseSummary | null}
       houseFailed={Boolean(houseError)}
       envelopeUrl={settings.envelope_url}
+      houseReceipts={houseReceipts}
+      pendingTopups={topupsRes.error ? 0 : (topupsRes.count ?? 0)}
     />
   );
 }

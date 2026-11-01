@@ -9,6 +9,8 @@ import { dbErrorToResult, zodToResult } from "@/lib/errors";
 import { readingSubmissionSchema } from "@/lib/validation";
 import { planUploads, removeObjects, signedReceipts, signUploads, verifyUploads, type ReceiptView, type SignedUpload } from "@/lib/receipts";
 import { supabasePublicKey, supabasePublicUrl } from "@/lib/env";
+import { planTopupUploads, verifyTopupUploads } from "@/lib/deposit-topups";
+import { signHouseUploads } from "@/lib/house-receipts";
 import type { ActionResult, Payment, PaymentEvent, PeriodTableRow, Receipt } from "@/lib/types";
 import { periodLabel } from "@/lib/utils";
 
@@ -217,4 +219,62 @@ export async function getChargeDetailsAction(apartmentId: string, periodId: stri
     ok: true,
     data: { row, periodLabel: periodLabel(period), canManage, isAdmin: session.isAdmin, privateInfo },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Окремий внесок у депозит (будь-коли, незалежно від показників)
+// ---------------------------------------------------------------------------
+
+/** Крок 1: квартира береться з сесії; сервер перевіряє файли й видає токени завантаження. */
+export async function prepareTopupUploadAction(
+  files: { name: string; type: string; size: number }[],
+): Promise<ActionResult<{ storageUrl: string; anonKey: string; uploads: SignedUpload[] }>> {
+  const ctx = await getActingContext();
+  if (!ctx) return { ok: false, error: "Квартиру не визначено. Увійдіть знову" };
+  if (!ctx.apartment.is_active) return { ok: false, error: "Квартира неактивна. Зверніться до адміністратора" };
+  const settings = await getSettings();
+  const plan = planTopupUploads(ctx.apartment.id, Array.isArray(files) ? files.slice(0, 10) : [], settings);
+  if (!plan.ok) return plan;
+  const signed = await signHouseUploads(plan.uploads);
+  if (!signed.ok) return signed;
+  return { ok: true, data: { storageUrl: supabasePublicUrl(), anonKey: supabasePublicKey(), uploads: signed.uploads } };
+}
+
+const topupSchema = z.object({
+  amount: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(",", "."))
+    .refine((v) => /^\d+(\.\d{1,2})?$/.test(v) && Number(v) > 0, "Вкажіть суму внеску, напр. 150 або 150,50"),
+  uploads: z.array(z.object({ path: z.string().max(200), name: z.string().max(255) })).min(1, "Прикріпіть квитанцію").max(10),
+  note: z.string().trim().max(500).optional(),
+});
+
+/** Крок 2: перевірка файлів за вмістом і подання внеску на перевірку адміністратору. */
+export async function submitDepositTopupAction(input: unknown): Promise<ActionResult> {
+  const parsed = topupSchema.safeParse(input);
+  if (!parsed.success) return zodToResult(parsed.error.issues);
+  const ctx = await getActingContext();
+  if (!ctx) return { ok: false, error: "Квартиру не визначено. Увійдіть знову" };
+  const { amount, uploads, note } = parsed.data;
+  const settings = await getSettings();
+  const verified = await verifyTopupUploads(ctx.apartment.id, uploads, settings);
+  if (!verified.ok) {
+    await removeObjects(uploads.map((u) => u.path));
+    return verified;
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_deposit_topup", {
+    p_apartment_id: ctx.apartment.id,
+    p_amount: amount,
+    p_receipts: verified.receipts,
+    p_note: note || null,
+  });
+  if (error) {
+    await removeObjects(uploads.map((u) => u.path));
+    return dbErrorToResult(error);
+  }
+  revalidateResident();
+  revalidatePath("/deposit");
+  return { ok: true, message: "Внесок надіслано на перевірку адміністратору" };
 }

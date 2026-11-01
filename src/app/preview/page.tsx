@@ -135,7 +135,14 @@ export default async function PreviewPage({ searchParams }: PageProps<"/preview"
       <>
         <PageHeader title="Список мешканців" description="Показники та нарахування всіх квартир за обраний місяць." />
         <div className="flex flex-col gap-5">
-          <HouseSummaryPanel summary={demoHouse} compact />
+          <HouseSummaryPanel
+            summary={demoHouse}
+            compact
+            houseReceipts={[{
+              id: "hr1", original_filename: "oplata-serpen-2026.pdf", mime_type: "application/pdf", file_size: 184320,
+              created_at: new Date().toISOString(), attempt_no: 0, url: null, note: "Оплачено постачальнику 07.09.2026: 7 223,04 грн",
+            }]}
+          />
           <ResidentsTable rows={demoTable} periodId={demoPeriod.id} maxSizeMb={10} />
         </div>
       </>

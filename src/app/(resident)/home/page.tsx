@@ -4,6 +4,7 @@ import { getCurrentPeriod, getSettings } from "@/lib/data";
 import { getApartmentPeriodState, getUnpaidPayments } from "@/lib/resident-data";
 import { createClient } from "@/lib/supabase/server";
 import { HomeView } from "@/components/views/home-view";
+import { getHouseReceiptViews } from "@/lib/house-receipts";
 import type { HouseSummary } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Головна" };
@@ -21,6 +22,7 @@ export default async function HomePage() {
     supabase.rpc("get_house_summary", { p_period_id: null }),
   ]);
   if (houseError) console.error("get_house_summary:", houseError.code, houseError.message);
+  const houseReceipts = await getHouseReceiptViews((house as HouseSummary | null)?.period?.id);
   return (
     <HomeView
       apartment={ctx.apartment}
@@ -31,6 +33,7 @@ export default async function HomePage() {
       house={house as HouseSummary | null}
       houseFailed={Boolean(houseError)}
       envelopeUrl={settings.envelope_url}
+      houseReceipts={houseReceipts}
       unpaidElsewhere={unpaid.filter((u) => u.periodId !== period?.id)}
       state={state}
     />

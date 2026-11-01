@@ -7,6 +7,7 @@ import { ResidentsTable } from "@/components/residents-table";
 import { HouseSummaryPanel } from "@/components/house-summary";
 import { createClient } from "@/lib/supabase/server";
 import type { HouseSummary } from "@/lib/types";
+import { getHouseReceiptViews } from "@/lib/house-receipts";
 
 export const metadata: Metadata = { title: "Список мешканців" };
 
@@ -45,7 +46,13 @@ export default async function ResidentsPage({ searchParams }: PageProps<"/reside
       )}
       {period ? (
         <div className="flex flex-col gap-5">
-          <HouseSummaryPanel summary={house} failed={houseFailed} envelopeUrl={settings.envelope_url} compact />
+          <HouseSummaryPanel
+            summary={house}
+            failed={houseFailed}
+            envelopeUrl={settings.envelope_url}
+            houseReceipts={await getHouseReceiptViews(period.id)}
+            compact
+          />
           <ResidentsTable rows={await getPeriodTable(period.id)} periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
         </div>
       ) : (

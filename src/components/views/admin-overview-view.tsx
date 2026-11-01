@@ -7,6 +7,7 @@ import { PeriodPicker, Stat } from "@/components/period-picker";
 import { WindowNotice } from "@/components/charges";
 import { RECONCILIATION_STATUS_LABEL, type BillingPeriod, type HouseReport, type HouseSummary } from "@/lib/types";
 import { HouseSummaryPanel } from "@/components/house-summary";
+import type { HouseReceiptView } from "@/lib/house-receipts";
 
 /** Огляд адміністратора (без звернень до даних). */
 export function AdminOverviewView({
@@ -16,6 +17,8 @@ export function AdminOverviewView({
   house,
   houseFailed,
   envelopeUrl,
+  houseReceipts,
+  pendingTopups = 0,
 }: {
   period: BillingPeriod;
   periods: BillingPeriod[];
@@ -24,6 +27,9 @@ export function AdminOverviewView({
   house?: HouseSummary | null;
   houseFailed?: boolean;
   envelopeUrl?: string | null;
+  houseReceipts?: HouseReceiptView[];
+  /** Окремих внесків у депозит на перевірці */
+  pendingTopups?: number;
 }) {
   const extra = r.charges.deposit + r.charges.hall_lighting + r.charges.other;
 
@@ -44,6 +50,13 @@ export function AdminOverviewView({
       <div className="mb-5 flex flex-col gap-3">
         <PeriodPicker periods={periods} selectedId={period.id} />
         <WindowNotice period={period} isAdmin />
+        {pendingTopups > 0 && (
+          <Notice tone="signal" title={`Окремих внесків у депозит на перевірці: ${pendingTopups}`}>
+            <Link href="/admin/deposit" className="underline underline-offset-4">
+              Перейти до перевірки
+            </Link>
+          </Notice>
+        )}
         {(r.pending_review_all ?? 0) > 0 && (
           <Notice tone="signal" title={`Платежів на перевірці: ${r.pending_review_all}`}>
             <Link href="/admin/payments?status=pending_review" className="underline underline-offset-4">
@@ -66,7 +79,7 @@ export function AdminOverviewView({
 
       {(house !== undefined || houseFailed || envelopeUrl) && (
         <div className="mt-5">
-          <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} compact />
+          <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} houseReceipts={houseReceipts} compact />
         </div>
       )}
 

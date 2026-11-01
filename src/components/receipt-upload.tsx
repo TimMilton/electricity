@@ -21,10 +21,22 @@ function receiptMimeType(f: File): string {
     : "";
 }
 
-/** Завантаження файлів у приватний бакет за шляхами, виданими сервером. */
-export async function uploadReceiptFiles(paymentId: string, files: File[]): Promise<
-  { ok: true; uploads: { path: string; name: string }[] } | { ok: false; error: string }
-> {
+type PrepareResult = Awaited<ReturnType<typeof prepareReceiptUploadAction>>;
+type UploadResult = { ok: true; uploads: { path: string; name: string }[] } | { ok: false; error: string };
+
+/** Завантаження квитанцій мешканця до платежу. */
+export function uploadReceiptFiles(paymentId: string, files: File[]): Promise<UploadResult> {
+  return uploadFilesWith((described) => prepareReceiptUploadAction(paymentId, described), files);
+}
+
+/**
+ * Завантаження файлів у приватний бакет за шляхами й токенами, виданими сервером
+ * (prepare — серверна дія, що перевіряє права й заявлені файли).
+ */
+export async function uploadFilesWith(
+  prepare: (described: { name: string; type: string; size: number }[]) => Promise<PrepareResult>,
+  files: File[],
+): Promise<UploadResult> {
   const described = files.map((f) => ({ name: f.name, type: receiptMimeType(f), size: f.size }));
   const heic = described.find((f) => /\.(heic|heif)$/i.test(f.name) || /hei[cf]/i.test(f.type));
   if (heic) {
@@ -33,7 +45,7 @@ export async function uploadReceiptFiles(paymentId: string, files: File[]): Prom
       error: `«${heic.name}»: формат HEIC (фото з iPhone) не підтримується. Надішліть скріншот квитанції або збережіть фото як JPEG`,
     };
   }
-  const prep = await prepareReceiptUploadAction(paymentId, described);
+  const prep = await prepare(described);
   if (!prep.ok) return { ok: false, error: prep.error };
   const { storageUrl, anonKey, uploads } = prep.data!;
   const supabase = createClient(storageUrl, anonKey, {

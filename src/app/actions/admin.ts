@@ -21,7 +21,10 @@ import {
   tariffSchema,
 } from "@/lib/validation";
 import { kyivLocalToIso } from "@/lib/utils";
-import { RECEIPTS_BUCKET, removeObjects } from "@/lib/receipts";
+import { RECEIPTS_BUCKET, removeObjects, type SignedUpload } from "@/lib/receipts";
+import { planHouseUploads, signHouseUploads, verifyHouseUploads } from "@/lib/house-receipts";
+import { getSettings } from "@/lib/data";
+import { supabasePublicKey, supabasePublicUrl } from "@/lib/env";
 import { randomBytes } from "node:crypto";
 import { apartmentLoginEmail, generateAccessCode, normalizeAccessCode } from "@/lib/access-code";
 import type { ActionResult } from "@/lib/types";
@@ -602,5 +605,101 @@ export async function deleteReceiptAction(input: unknown): Promise<ActionResult>
     if (res?.storage_path) await removeObjects([res.storage_path]);
     refresh();
     return { ok: true, message: "Квитанцію видалено", warnings: res?.warnings ?? [] };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Квитанції про оплату за загальним лічильником будинку
+// ---------------------------------------------------------------------------
+const uploadsSchema = z.array(z.object({ path: z.string().max(200), name: z.string().max(255) })).min(1, "Оберіть файл квитанції").max(10);
+
+/** Крок 1: перевірка заявлених файлів і підписані посилання для завантаження. */
+export async function prepareHouseReceiptUploadAction(
+  periodId: string,
+  files: { name: string; type: string; size: number }[],
+): Promise<ActionResult<{ storageUrl: string; anonKey: string; uploads: SignedUpload[] }>> {
+  return guard(async () => {
+    if (!uuid.safeParse(periodId).success) return { ok: false, error: "Некоректний період" };
+    const supabase = await admin();
+    const { data: period } = await supabase.from("billing_periods").select("id").eq("id", periodId).maybeSingle();
+    if (!period) return { ok: false, error: "Період не знайдено" };
+    const settings = await getSettings();
+    const plan = planHouseUploads(periodId, Array.isArray(files) ? files.slice(0, 10) : [], settings);
+    if (!plan.ok) return plan;
+    const signed = await signHouseUploads(plan.uploads);
+    if (!signed.ok) return signed;
+    return { ok: true, data: { storageUrl: supabasePublicUrl(), anonKey: supabasePublicKey(), uploads: signed.uploads } };
+  });
+}
+
+/** Крок 2: перевірка вмісту завантажених файлів і запис у базу. */
+export async function addHouseReceiptsAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z
+      .object({ periodId: uuid, uploads: uploadsSchema, note: z.string().trim().max(500).optional() })
+      .safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const { periodId, uploads, note } = parsed.data;
+    const supabase = await admin();
+    const settings = await getSettings();
+    const verified = await verifyHouseUploads(periodId, uploads, settings);
+    if (!verified.ok) {
+      await removeObjects(uploads.map((u) => u.path));
+      return verified;
+    }
+    const { error } = await supabase.rpc("admin_add_house_receipts", {
+      p_period_id: periodId,
+      p_receipts: verified.receipts,
+      p_note: note || null,
+    });
+    if (error) {
+      await removeObjects(uploads.map((u) => u.path));
+      return dbErrorToResult(error);
+    }
+    refresh();
+    return { ok: true, message: "Квитанцію будинку завантажено" };
+  });
+}
+
+export async function deleteHouseReceiptAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ receiptId: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { data, error } = await supabase.rpc("admin_delete_house_receipt", {
+      p_id: parsed.data.receiptId,
+      p_reason: parsed.data.reason,
+    });
+    if (error) return dbErrorToResult(error);
+    if (typeof data === "string") await removeObjects([data]);
+    refresh();
+    return { ok: true, message: "Квитанцію будинку видалено" };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Окремі внески в депозит
+// ---------------------------------------------------------------------------
+export async function approveDepositTopupAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ id: uuid, note: z.string().trim().max(1000).optional() }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { error } = await supabase.rpc("admin_approve_deposit_topup", { p_topup_id: parsed.data.id, p_note: parsed.data.note || null });
+    if (error) return dbErrorToResult(error);
+    refresh();
+    return { ok: true, message: "Внесок підтверджено й зараховано до депозиту" };
+  });
+}
+
+export async function rejectDepositTopupAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ id: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { error } = await supabase.rpc("admin_reject_deposit_topup", { p_topup_id: parsed.data.id, p_reason: parsed.data.reason });
+    if (error) return dbErrorToResult(error);
+    refresh();
+    return { ok: true, message: "Внесок відхилено" };
   });
 }

@@ -4,6 +4,8 @@ import { Tag } from "@/components/ui/status";
 import { fromDb, formatKwh, formatMoney, formatReading, formatTariff } from "@/lib/money";
 import { formatDateTime } from "@/lib/utils";
 import { RECONCILIATION_STATUS_LABEL, type HouseSummary } from "@/lib/types";
+import { ReceiptList } from "@/components/receipt-list";
+import type { HouseReceiptView } from "@/lib/house-receipts";
 
 function percentOf(part: bigint, whole: bigint): string | null {
   if (whole <= 0n) return null;
@@ -62,7 +64,11 @@ export function EnvelopeLink({ url }: { url: string | null | undefined }) {
 function CollectionsSection({ summary }: { summary: HouseSummary }) {
   if (summary.charged_total === undefined) return null; // база ще без цих полів
   const other = fromDb(summary.charged_other ?? 0, 2) ?? 0n;
-  const paidTotal = fromDb(summary.paid_total ?? 0, 2) ?? 0n;
+  const topupsPaid = fromDb(summary.topups_paid ?? 0, 2) ?? 0n;
+  const topupsPending = fromDb(summary.topups_pending ?? 0, 2) ?? 0n;
+  // Підтверджені окремі внески в депозит теж надходять на конверт
+  const paidTotal = (fromDb(summary.paid_total ?? 0, 2) ?? 0n) + topupsPaid;
+  const paidExtras = (fromDb(summary.paid_extras ?? 0, 2) ?? 0n) + topupsPaid;
   return (
     <section aria-label="Збори за місяць" className="mt-5 border-t border-line pt-4">
       <h3 className="mb-1 font-semibold">Збори з квартир за місяць</h3>
@@ -72,21 +78,49 @@ function CollectionsSection({ summary }: { summary: HouseSummary }) {
           <Row label="Депозит" value={formatMoney(summary.charged_deposit ?? 0)} />
           <Row label="Освітлення під'їзду" value={formatMoney(summary.charged_hall_lighting ?? 0)} />
           {other > 0n && <Row label="Інші внески" value={formatMoney(summary.charged_other ?? 0)} />}
+          {(topupsPaid > 0n || topupsPending > 0n) && (
+            <Row
+              label="Окремі внески в депозит"
+              value={
+                <>
+                  {formatMoney(topupsPaid)}
+                  {topupsPending > 0n && (
+                    <span className="ml-1 text-sm font-normal text-ink-soft">(+{formatMoney(topupsPending)} на перевірці)</span>
+                  )}
+                </>
+              }
+            />
+          )}
         </dl>
         <dl>
           <Row
-            label={other > 0n ? "Понад електроенергію (депозит + освітлення + інші)" : "Понад електроенергію (депозит + освітлення)"}
+            label={other > 0n ? "Інші нарахування (депозит + освітлення + інші)" : "Інші нарахування (депозит + освітлення)"}
             value={formatMoney(summary.charged_extras ?? 0)}
             strong
           />
           <Row label="Усього нараховано квартирам" value={formatMoney(summary.charged_total ?? 0)} />
-          <Row label="Підтверджено оплат" value={formatMoney(summary.paid_total ?? 0)} />
-          {paidTotal > 0n && <Row label="з них понад електроенергію" value={formatMoney(summary.paid_extras ?? 0)} />}
+          <Row label={topupsPaid > 0n ? "Підтверджено надходжень (з окремими внесками)" : "Підтверджено оплат"} value={formatMoney(paidTotal)} />
+          {paidTotal > 0n && <Row label="з них інші нарахування" value={formatMoney(paidExtras)} />}
         </dl>
       </div>
       <p className="mt-1 text-sm text-ink-soft">
-        «Понад електроенергію» — кошти на конверті, що не покривають лічильники квартир: депозит і освітлення під&apos;їзду.
+        «Інші нарахування» — кошти на конверті понад лічильники квартир: депозит і освітлення під&apos;їзду.
       </p>
+    </section>
+  );
+}
+
+/** Квитанції про оплату за загальним лічильником (мешканцям — після закриття періоду). */
+function HouseReceiptsSection({ receipts }: { receipts: HouseReceiptView[] | undefined }) {
+  if (!receipts || receipts.length === 0) return null;
+  const notes = [...new Set(receipts.map((r) => r.note).filter((n): n is string => !!n))];
+  return (
+    <section aria-label="Квитанція про оплату за загальним лічильником" className="mt-5 border-t border-line pt-4">
+      <h3 className="mb-2 font-semibold">Квитанція про оплату за загальним лічильником</h3>
+      {notes.map((n) => (
+        <p key={n} className="mb-2 text-[15px]">{n}</p>
+      ))}
+      <ReceiptList receipts={receipts} />
     </section>
   );
 }
@@ -97,6 +131,7 @@ export function HouseSummaryPanel({
   compact,
   failed,
   envelopeUrl,
+  houseReceipts,
 }: {
   summary: HouseSummary | null;
   compact?: boolean;
@@ -104,6 +139,8 @@ export function HouseSummaryPanel({
   failed?: boolean;
   /** Посилання на конверт із налаштувань — показується завжди, навіть без даних будинку */
   envelopeUrl?: string | null;
+  /** Квитанції будинку за місяць зведення (мешканцям — лише за закритий період) */
+  houseReceipts?: HouseReceiptView[];
 }) {
   const envelope = summary?.envelope_url ?? envelopeUrl ?? null;
   if (failed) {
@@ -139,6 +176,7 @@ export function HouseSummaryPanel({
           </dl>
         )}
         {summary.period && <CollectionsSection summary={summary} />}
+        <HouseReceiptsSection receipts={houseReceipts} />
       </Panel>
     );
   }
@@ -148,6 +186,11 @@ export function HouseSummaryPanel({
   const disc = fromDb(summary.discrepancy_kwh, 2) ?? 0n;
   const debt = fromDb(summary.discrepancy_amount, 2);
   const after = fromDb(summary.deposit_after, 2);
+  // Нова база: різниця спершу покривається внесками за освітлення під'їзду
+  const hasHall = summary.debt_after_hall_lighting !== undefined && summary.debt_after_hall_lighting !== null;
+  const afterHall = hasHall ? fromDb(summary.debt_after_hall_lighting, 2) : null;
+  const hallCharged = fromDb(summary.charged_hall_lighting ?? 0, 2) ?? 0n;
+  const debtLeft = afterHall ?? debt; // що лишається покрити депозитом
   const pct = percentOf(disc, commonKwh);
   const status = summary.reconciliation_status;
 
@@ -204,18 +247,40 @@ export function HouseSummaryPanel({
               <Row label="Сума будинку за світло (загальний лічильник)" value={formatMoney(summary.common_amount)} strong />
               <Row label="Нараховано квартирам за електроенергію" value={formatMoney(summary.apartments_amount)} />
               <Row
-                label={debt !== null && debt > 0n ? "Борг: не покрито квартирами" : "Різниця"}
+                label={debt !== null && debt > 0n ? (hasHall ? "Різниця: не покрито лічильниками квартир" : "Борг: не покрито квартирами") : "Різниця"}
                 value={formatMoney(summary.discrepancy_amount)}
-                strong
-                className={debt !== null && debt > 0n ? "[&_dd]:text-danger" : undefined}
+                strong={!hasHall}
+                className={!hasHall && debt !== null && debt > 0n ? "[&_dd]:text-danger" : undefined}
               />
+              {hasHall && debt !== null && debt > 0n && (
+                <>
+                  <Row
+                    label="Покрито внесками за освітлення під'їзду"
+                    value={hallCharged > 0n ? `−${formatMoney(summary.hall_lighting_cover ?? 0)}` : formatMoney(0)}
+                  />
+                  {afterHall !== null && afterHall > 0n ? (
+                    <Row label="Борг після освітлення під'їзду" value={formatMoney(afterHall)} strong className="[&_dd]:text-danger" />
+                  ) : (
+                    <Row label="Борг після освітлення під'їзду" value={formatMoney(0)} strong className="[&_dd]:text-ok" />
+                  )}
+                  {afterHall !== null && afterHall < 0n && (
+                    <Row label="Надлишок внесків за освітлення" value={formatMoney(-afterHall)} className="[&_dd]:text-ok" />
+                  )}
+                </>
+              )}
               {summary.deposit_public && summary.deposit_balance !== null && (
                 <>
                   <Row label="Баланс депозиту будинку" value={formatMoney(summary.deposit_balance)} />
-                  {after !== null &&
+                  {after !== null && debtLeft !== null && debtLeft > 0n &&
                     (after >= 0n ? (
                       <Row
-                        label={summary.deposit_already_applied ? "Залишиться після покриття решти боргу" : "Залишиться після покриття боргу"}
+                        label={
+                          summary.deposit_already_applied
+                            ? "Залишиться на депозиті після покриття решти боргу"
+                            : hasHall
+                              ? "Залишиться на депозиті після покриття боргу"
+                              : "Залишиться після покриття боргу"
+                        }
                         value={formatMoney(after)}
                       />
                     ) : (
@@ -229,6 +294,7 @@ export function HouseSummaryPanel({
       </div>
 
       <CollectionsSection summary={summary} />
+      <HouseReceiptsSection receipts={houseReceipts} />
 
       <div className="mt-4 flex flex-col gap-2">
         {summary.is_preliminary && (
@@ -252,8 +318,8 @@ export function HouseSummaryPanel({
       </div>
 
       <p className="mt-3 text-sm text-ink-soft">
-        Орієнтовний розрахунок. Борг не розподіляється між квартирами автоматично — рішення про використання депозиту ухвалює
-        адміністратор.
+        Орієнтовний розрахунок.{hasHall && " Різницю спершу покривають внески за освітлення під'їзду (воно живиться від загального лічильника), залишок — депозит."}{" "}
+        Борг не розподіляється між квартирами автоматично — рішення про використання депозиту ухвалює адміністратор.
         {summary.common_updated_at && ` Показник загального лічильника внесено ${formatDateTime(summary.common_updated_at)}.`}
       </p>
     </Panel>

@@ -270,6 +270,10 @@ export type HouseSummary = {
   /** Внески квартир поза електроенергією за місяць (за поданими показниками) */
   charged_deposit?: Num;
   charged_hall_lighting?: Num;
+  /** Скільки різниці покрито внесками за освітлення під'їзду */
+  hall_lighting_cover?: Num | null;
+  /** Різниця після освітлення (від'ємна — надлишок внесків за освітлення) */
+  debt_after_hall_lighting?: Num | null;
   charged_other?: Num;
   charged_extras?: Num;
   /** Усього нараховано квартирам: електроенергія + внески */
@@ -277,5 +281,8 @@ export type HouseSummary = {
   /** Підтверджені оплати за місяць і їхня частина поза електроенергією */
   paid_total?: Num;
   paid_extras?: Num;
+  /** Окремі внески в депозит за місяць: підтверджені й на перевірці */
+  topups_paid?: Num;
+  topups_pending?: Num;
   envelope_url?: string | null;
 };

@@ -11,6 +11,9 @@ import { Stat } from "@/components/period-picker";
 import { Tag } from "@/components/ui/status";
 import { DepositOperationForm } from "@/components/admin/finance";
 import { DEPOSIT_TX_LABEL, type DepositLedgerEntry, type DepositTxType } from "@/lib/types";
+import { listDepositTopups } from "@/lib/deposit-topups";
+import { TopupList } from "@/components/deposit-topups";
+import { TopupReviewActions } from "@/components/admin/topup-review";
 
 export const metadata: Metadata = { title: "Баланс депозиту" };
 
@@ -29,10 +32,13 @@ export default async function DepositPage({ searchParams }: PageProps<"/admin/de
   const type = typeof sp.type === "string" && TYPES.includes(sp.type as DepositTxType) ? (sp.type as DepositTxType) : undefined;
 
   const supabase = await createClient();
-  const [{ data: all }, { data: apts }] = await Promise.all([
+  const [{ data: all }, { data: apts }, topups] = await Promise.all([
     supabase.from("deposit_ledger").select("*, billing_periods(year, month), apartments(apartment_number)").order("created_at", { ascending: false }),
     supabase.from("apartments").select("id, apartment_number, sort_num").eq("is_active", true).order("sort_num"),
+    listDepositTopups({ limit: 50 }),
   ]);
+  const pendingTopups = topups.filter((t) => t.status === "pending_review");
+  const recentTopups = topups.filter((t) => t.status !== "pending_review").slice(0, 10);
   const entries = (all ?? []) as Entry[];
   const sumOf = (t?: DepositTxType) => entries.filter((e) => !t || e.transaction_type === t).reduce((s, e) => s + (fromDb(e.amount, 2) ?? 0n), 0n);
   const filtered = entries.filter((e) => (!periodId || e.billing_period_id === periodId) && (!type || e.transaction_type === type));
@@ -57,6 +63,30 @@ export default async function DepositPage({ searchParams }: PageProps<"/admin/de
         <Stat label="Покриття розбіжностей" value={formatMoney(sumOf("discrepancy_adjustment"))} />
         <Stat label="Коригування й повернення" value={formatMoney(sumOf("correction") + sumOf("refund"))} />
       </div>
+
+      <Panel
+        title={`Окремі внески в депозит${pendingTopups.length ? ` — на перевірці: ${pendingTopups.length}` : ""}`}
+        description="Мешканці поповнюють депозит будь-коли, незалежно від показників. До журналу депозиту внесок потрапляє лише після вашого підтвердження."
+        className="mt-5"
+      >
+        {pendingTopups.length === 0 ? (
+          <p className="text-ink-soft">Нових внесків на перевірці немає.</p>
+        ) : (
+          <TopupList
+            items={pendingTopups}
+            showApartment
+            actions={(t) => <TopupReviewActions id={t.id} amount={String(t.amount)} apartment={t.apartment_number ?? "—"} />}
+          />
+        )}
+        {recentTopups.length > 0 && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-[15px] font-medium text-face">Останні розглянуті внески ({recentTopups.length})</summary>
+            <div className="mt-3">
+              <TopupList items={recentTopups} showApartment />
+            </div>
+          </details>
+        )}
+      </Panel>
 
       <Panel title="Журнал операцій" className="mt-5">
         <form method="get" className="mb-4 flex flex-wrap items-end gap-2">

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/ui/controls";
 import { ReconciliationCard } from "@/components/admin/reconciliation-card";
 import type { Reconciliation } from "@/lib/types";
+import { getHallLightingByPeriod } from "@/lib/hall-lighting";
 
 export const metadata: Metadata = { title: "Розбіжності" };
 
@@ -17,6 +18,7 @@ export default async function ReconciliationPage() {
   const rows = (data ?? []) as (Reconciliation & { billing_periods: { year: number; month: number } })[];
   rows.sort((a, b) => b.billing_periods.year * 12 + b.billing_periods.month - (a.billing_periods.year * 12 + a.billing_periods.month));
   const balance = String((dep as { balance: number } | null)?.balance ?? 0);
+  const hall = await getHallLightingByPeriod(supabase, rows.map((r) => r.billing_period_id));
   return (
     <>
       <PageHeader
@@ -28,7 +30,7 @@ export default async function ReconciliationPage() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {rows.map((r) => (
-            <ReconciliationCard key={r.id} rec={r} periodId={r.billing_period_id} balance={balance} withPeriodTitle={r.billing_periods} />
+            <ReconciliationCard key={r.id} rec={r} periodId={r.billing_period_id} balance={balance} withPeriodTitle={r.billing_periods} hallLighting={hall.get(r.billing_period_id) ?? "0.00"} />
           ))}
         </div>
       )}

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { resolvePeriod } from "@/lib/data";
+import { getSettings, resolvePeriod } from "@/lib/data";
+import { getHouseReceiptViews } from "@/lib/house-receipts";
+import { getHallLightingByPeriod } from "@/lib/hall-lighting";
+import { HouseReceiptUploader } from "@/components/admin/house-receipt-uploader";
+import { ReceiptList } from "@/components/receipt-list";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, periodLabel } from "@/lib/utils";
 import { formatKwh, formatReading, fromDb, toDecimalString } from "@/lib/money";
-import { EmptyState, PageHeader, Panel } from "@/components/ui/controls";
+import { EmptyState, Notice, PageHeader, Panel } from "@/components/ui/controls";
 import { PeriodPicker } from "@/components/period-picker";
 import { CommonReadingForm, DeleteCommonReadingButton } from "@/components/admin/finance";
 import { ReconciliationCard } from "@/components/admin/reconciliation-card";
@@ -26,6 +30,12 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
     supabase.from("common_meter_readings").select("*"),
     supabase.rpc("get_deposit_summary"),
   ]);
+  const [houseReceipts, settings, hall] = await Promise.all([
+    getHouseReceiptViews(period.id),
+    getSettings(),
+    getHallLightingByPeriod(supabase, [period.id]),
+  ]);
+  const periodClosed = period.status === "closed";
   // Скільки вже використано з депозиту на розбіжність цього місяця
   let depositUsed: string | null = null;
   if (rec) {
@@ -67,13 +77,37 @@ export default async function CommonMeterPage({ searchParams }: PageProps<"/admi
           )}
         </Panel>
         {rec ? (
-          <ReconciliationCard rec={rec} periodId={period.id} balance={String((balance as { balance: number } | null)?.balance ?? 0)} />
+          <ReconciliationCard
+            rec={rec}
+            periodId={period.id}
+            balance={String((balance as { balance: number } | null)?.balance ?? 0)}
+            hallLighting={hall.get(period.id) ?? "0.00"}
+          />
         ) : (
           <Panel title="Розбіжність">
             <p className="text-ink-soft">Розрахунок з&apos;явиться після збереження показника загального лічильника.</p>
           </Panel>
         )}
       </div>
+      <Panel
+        title={`Квитанція про оплату за загальним лічильником: ${periodLabel(period).toLowerCase()}`}
+        description="Квитанція або скріншот оплати постачальнику за весь будинок. Мешканці бачать її в блоці «Будинок» після закриття періоду."
+        className="mt-5"
+      >
+        <Notice tone={periodClosed ? "ok" : "info"} className="mb-4">
+          {periodClosed
+            ? "Період закрито — мешканці вже бачать завантажені квитанції."
+            : `Період ще не закрито: мешканці побачать квитанції після ${formatDateTime(period.reading_window_end)} (завершення приймання показників) або після того, як ви закриєте період вручну в розділі «Періоди й тарифи».`}
+        </Notice>
+        {houseReceipts.length > 0 && (
+          <div className="mb-4 flex flex-col gap-2">
+            {houseReceipts.map((r) => r.note && <p key={`note-${r.id}`} className="text-[15px]">{r.original_filename}: {r.note}</p>)}
+            <ReceiptList receipts={houseReceipts} deletable deleteKind="house" />
+          </div>
+        )}
+        <HouseReceiptUploader periodId={period.id} maxSizeMb={settings.max_receipt_size_mb} />
+      </Panel>
+
       <Panel
         title="Усі місяці"
         description="Оберіть місяць, щоб внести або виправити показник. Потрібного місяця немає — створіть його в розділі «Періоди»."

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calculator, CreditCard, Gauge, History, Users } from "lucide-react";
+import { Calculator, CreditCard, Gauge, History, PiggyBank, Users } from "lucide-react";
 import { periodPhase } from "@/lib/period";
 import { formatKwh, formatMoney, formatReading } from "@/lib/money";
 import { formatDate, formatDateTime, periodLabel } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { HouseSummaryPanel } from "@/components/house-summary";
 import { EntrancePicker } from "@/components/entrance-picker";
 import { UnpaidNotice } from "@/components/unpaid-notice";
 import type { UnpaidPayment } from "@/lib/resident-data";
+import type { HouseReceiptView } from "@/lib/house-receipts";
 import type { BillingPeriod, HouseSummary, MeterReading, Payment } from "@/lib/types";
 
 export type HomeViewProps = {
@@ -28,6 +29,8 @@ export type HomeViewProps = {
   envelopeUrl?: string | null;
   /** Неоплачені нарахування за інші місяці */
   unpaidElsewhere?: UnpaidPayment[];
+  /** Квитанції будинку за місяць зведення */
+  houseReceipts?: HouseReceiptView[];
   state: {
     reading: MeterReading | null;
     charges: { deposit: string; hallLighting: string; other: string } | null;
@@ -38,7 +41,7 @@ export type HomeViewProps = {
 };
 
 /** Головна сторінка мешканця (без звернень до даних — використовується і в попередньому перегляді). */
-export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, houseFailed, envelopeUrl, unpaidElsewhere = [], state }: HomeViewProps) {
+export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, houseFailed, envelopeUrl, unpaidElsewhere = [], houseReceipts, state }: HomeViewProps) {
   if (!period || !state) {
     return (
       <div className="flex flex-col gap-5">
@@ -47,7 +50,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
         <EmptyState title="Розрахунковий період ще не створено">
           Адміністратор ще не відкрив приймання показників. Спробуйте пізніше.
         </EmptyState>
-        <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} />
+        <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} houseReceipts={houseReceipts} />
       </div>
     );
   }
@@ -175,6 +178,12 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
               </Button>
             )}
             <Button asChild variant="outline">
+              <Link href="/deposit">
+                <PiggyBank aria-hidden />
+                Поповнити депозит
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link href="/history">
                 <History aria-hidden />
                 Переглянути історію
@@ -195,7 +204,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
         </Panel>
       </div>
 
-      <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} />
+      <HouseSummaryPanel summary={house ?? null} failed={houseFailed} envelopeUrl={envelopeUrl} houseReceipts={houseReceipts} />
     </div>
   );
 }

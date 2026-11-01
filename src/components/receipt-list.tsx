@@ -13,12 +13,14 @@ export function ReceiptList({
   compact,
   deletable,
   onDeleted,
+  deleteKind,
 }: {
   receipts: ReceiptView[];
   compact?: boolean;
   /** Показати кнопку «Видалити» (лише для адміністратора) */
   deletable?: boolean;
   onDeleted?: () => void;
+  deleteKind?: "payment" | "house";
 }) {
   return (
     <ul className="flex flex-col gap-2">
@@ -54,7 +56,7 @@ export function ReceiptList({
           ) : (
             <span className="text-sm text-ink-soft">Недоступно</span>
           )}
-          {deletable && <DeleteReceiptButton receiptId={r.id} filename={r.original_filename} onDeleted={onDeleted} />}
+          {deletable && <DeleteReceiptButton receiptId={r.id} filename={r.original_filename} onDeleted={onDeleted} kind={deleteKind} />}
         </li>
       ))}
     </ul>

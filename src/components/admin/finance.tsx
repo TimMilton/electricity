@@ -206,6 +206,7 @@ export function ReconciliationActions({
   discrepancyPositive,
   needsExplanation,
   estimated,
+  estimatedLabel,
   balance,
 }: {
   id: string;
@@ -214,6 +215,8 @@ export function ReconciliationActions({
   discrepancyPositive: boolean;
   needsExplanation: boolean;
   estimated: string | null;
+  /** Підпис до пропонованої суми (за замовчуванням — орієнтовна вартість розбіжності) */
+  estimatedLabel?: string;
   balance: string;
 }) {
   const { run } = useAction();
@@ -251,7 +254,7 @@ export function ReconciliationActions({
           onConfirm={() => run(() => applyAdjustmentAction({ reconciliationId: id, amount, description }))}
         >
           <div className="flex flex-col gap-3">
-            <Field label="Сума, грн" htmlFor={`adj-${id}`} hint={estimated ? `Орієнтовна вартість розбіжності: ${formatMoney(estimated)}` : undefined}>
+            <Field label="Сума, грн" htmlFor={`adj-${id}`} hint={estimated ? `${estimatedLabel ?? "Орієнтовна вартість розбіжності"}: ${formatMoney(estimated)}` : undefined}>
               <Input id={`adj-${id}`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </Field>
             <Field label="Підстава (обов'язково)" htmlFor={`adjd-${id}`}>
