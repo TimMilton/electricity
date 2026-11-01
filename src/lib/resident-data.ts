@@ -67,3 +67,34 @@ export async function getApartmentPeriodState(apartmentId: string, periodId: str
     tariff: readingRes.data ? String(readingRes.data.tariff_rate) : tariffRes.data != null ? String(tariffRes.data) : null,
   };
 }
+
+export type UnpaidPayment = {
+  periodId: string;
+  year: number;
+  month: number;
+  total: string;
+  status: "awaiting_payment" | "rejected";
+};
+
+/**
+ * Неоплачені нарахування квартири за всі місяці (новіші першими).
+ * Оплата не обмежена вікном приймання показників: оплатити можна будь-коли.
+ */
+export async function getUnpaidPayments(apartmentId: string): Promise<UnpaidPayment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("payments")
+    .select("billing_period_id, total_amount, status, billing_periods(year, month)")
+    .eq("apartment_id", apartmentId)
+    .in("status", ["awaiting_payment", "rejected"])
+    .gt("total_amount", 0);
+  if (error) {
+    console.error("getUnpaidPayments:", error.code, error.message);
+    return [];
+  }
+  type Row = { billing_period_id: string; total_amount: number | string; status: UnpaidPayment["status"]; billing_periods: { year: number; month: number } | null };
+  return ((data ?? []) as unknown as Row[])
+    .filter((r) => r.billing_periods)
+    .map((r) => ({ periodId: r.billing_period_id, year: r.billing_periods!.year, month: r.billing_periods!.month, total: String(r.total_amount), status: r.status }))
+    .sort((a, b) => b.year - a.year || b.month - a.month);
+}

@@ -86,6 +86,7 @@ export default async function PreviewPage({ searchParams }: PageProps<"/preview"
         otherEnabled={false}
         deposit={{ is_public: true, balance: "1480.00" }}
         house={demoHouse}
+        unpaidElsewhere={[{ periodId: "00000000-0000-4000-8000-0000000000a8", year: 2026, month: 8, total: "512.40", status: "awaiting_payment" }]}
         state={{
           reading: demoReading,
           charges: { deposit: "50.00", hallLighting: "15.50", other: "0.00" },

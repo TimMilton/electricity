@@ -10,6 +10,8 @@ import { ReceiptList } from "@/components/receipt-list";
 import type { ReceiptView } from "@/lib/receipts";
 import { HouseSummaryPanel } from "@/components/house-summary";
 import { EntrancePicker } from "@/components/entrance-picker";
+import { UnpaidNotice } from "@/components/unpaid-notice";
+import type { UnpaidPayment } from "@/lib/resident-data";
 import type { BillingPeriod, HouseSummary, MeterReading, Payment } from "@/lib/types";
 
 export type HomeViewProps = {
@@ -24,6 +26,8 @@ export type HomeViewProps = {
   houseFailed?: boolean;
   /** Посилання на конверт — завжди видно в блоці «Будинок» */
   envelopeUrl?: string | null;
+  /** Неоплачені нарахування за інші місяці */
+  unpaidElsewhere?: UnpaidPayment[];
   state: {
     reading: MeterReading | null;
     charges: { deposit: string; hallLighting: string; other: string } | null;
@@ -34,11 +38,12 @@ export type HomeViewProps = {
 };
 
 /** Головна сторінка мешканця (без звернень до даних — використовується і в попередньому перегляді). */
-export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, houseFailed, envelopeUrl, state }: HomeViewProps) {
+export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: dep, house, houseFailed, envelopeUrl, unpaidElsewhere = [], state }: HomeViewProps) {
   if (!period || !state) {
     return (
       <div className="flex flex-col gap-5">
         <ApartmentHeading apartment={apartment} />
+        <UnpaidNotice items={unpaidElsewhere} />
         <EmptyState title="Розрахунковий період ще не створено">
           Адміністратор ще не відкрив приймання показників. Спробуйте пізніше.
         </EmptyState>
@@ -57,6 +62,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
   return (
     <div className="flex flex-col gap-5">
       <ApartmentHeading apartment={ctx.apartment} />
+      <UnpaidNotice items={unpaidElsewhere} />
 
       <section aria-labelledby="period-title" className="overflow-hidden rounded-[var(--radius-panel)] bg-face text-white">
         <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
@@ -162,7 +168,7 @@ export function HomeView({ apartment, period, isAdmin, otherEnabled, deposit: de
             )}
             {r && (status === "awaiting_payment" || status === "rejected") && state.payment && Number(state.payment.total_amount) > 0 && (
               <Button asChild variant="signal" size="lg">
-                <Link href="/pay">
+                <Link href={`/pay?period=${period.id}`}>
                   <CreditCard aria-hidden />
                   Оплатити {formatMoney(state.payment.total_amount)}
                 </Link>

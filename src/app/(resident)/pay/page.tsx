@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireActingContext } from "@/lib/auth";
 import { getCurrentPeriod, getSettings, listPeriods } from "@/lib/data";
-import { getApartmentPeriodState } from "@/lib/resident-data";
+import { getApartmentPeriodState, getUnpaidPayments } from "@/lib/resident-data";
 import { formatDateTime, periodLabel } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
+import { UnpaidNotice } from "@/components/unpaid-notice";
 import { Button, EmptyState, Notice, PageHeader, Panel } from "@/components/ui/controls";
 import { PaymentStatusBadge } from "@/components/ui/status";
 import { PaymentFlow } from "@/components/payment-flow";
@@ -19,7 +20,14 @@ export default async function PayPage({ searchParams }: PageProps<"/pay">) {
   const settings = await getSettings();
   const periods = await listPeriods();
   const current = await getCurrentPeriod();
-  const period = (typeof sp.period === "string" && periods.find((p) => p.id === sp.period)) || current;
+  const unpaid = await getUnpaidPayments(ctx.apartment.id);
+  // Без явного вибору: поточний місяць, а якщо за ним оплачувати нічого — найновіший неоплачений.
+  // Оплата не залежить від вікна приймання показників (після 5 числа теж можна оплатити).
+  const explicit = typeof sp.period === "string" ? periods.find((p) => p.id === sp.period) : undefined;
+  const currentUnpaid = current ? unpaid.some((u) => u.periodId === current.id) : false;
+  const fallback = !currentUnpaid && unpaid[0] ? periods.find((p) => p.id === unpaid[0]!.periodId) : undefined;
+  const period = explicit || fallback || current;
+  const otherUnpaid = unpaid.filter((u) => u.periodId !== period?.id);
 
   if (!period) {
     return (
@@ -37,6 +45,7 @@ export default async function PayPage({ searchParams }: PageProps<"/pay">) {
     return (
       <>
         <PageHeader title="Оплата" description={periodLabel(period)} />
+        <UnpaidNotice items={otherUnpaid} className="mb-5" />
         <EmptyState title="Спочатку внесіть показники">
           Сума до сплати з&apos;явиться після внесення показника лічильника.{" "}
           <Link href="/readings" className="text-face underline underline-offset-4">Внести показники</Link>
@@ -56,6 +65,7 @@ export default async function PayPage({ searchParams }: PageProps<"/pay">) {
   return (
     <>
       <PageHeader title="Оплата" description={`Квартира №${ctx.apartment.apartment_number}, ${periodLabel(period).toLowerCase()}`} />
+      <UnpaidNotice items={otherUnpaid} className="mb-5" />
       {payment.status === "awaiting_payment" || payment.status === "rejected" ? (
         Number(payment.total_amount) > 0 ? (
           <PaymentFlow

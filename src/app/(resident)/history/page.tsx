@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { requireActingContext } from "@/lib/auth";
 import { listPeriods } from "@/lib/data";
@@ -93,6 +94,14 @@ export default async function HistoryPage() {
                       <dd className="tabular">{formatMoney(charge("other"))}</dd>
                     </div>
                   </dl>
+                  {payment && (payment.status === "awaiting_payment" || payment.status === "rejected") && Number(payment.total_amount) > 0 && (
+                    <Link
+                      href={`/pay?period=${period.id}`}
+                      className="mt-3 inline-flex h-10 items-center rounded-[var(--radius-control)] bg-signal px-4 text-[15px] font-semibold text-ink hover:brightness-95"
+                    >
+                      Оплатити {formatMoney(payment.total_amount)}
+                    </Link>
+                  )}
                   {payment?.status === "rejected" && payment.rejection_reason && (
                     <p className="mt-2 text-[15px] text-danger">Причина відхилення: {payment.rejection_reason}</p>
                   )}
