@@ -21,24 +21,55 @@ const getAuthUser = cache(async () => {
   return data.user ?? null;
 });
 
-/** Поточний користувач і профіль (кешується в межах запиту). */
-export const getSession = cache(async (): Promise<Session | null> => {
-  const supabase = await createClient();
+/** Профіль користувача Auth (без перевірки згоди). */
+const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getAuthUser();
   if (!user) return null;
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, auth_user_id, apartment_id, surname, role, is_primary, is_active")
     .eq("auth_user_id", user.id)
     .maybeSingle<Profile>();
+  return profile ?? null;
+});
+
+/**
+ * Чи має користувач чинну згоду на обробку персональних даних (поточної
+ * редакції). У разі будь-якої помилки — «ні»: без підтвердженої згоди
+ * обліковий запис не відкривається.
+ */
+const hasValidConsent = cache(async (): Promise<boolean> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_consent_status");
+  if (error) {
+    console.error("my_consent_status:", error.code, error.message);
+    return false;
+  }
+  return (data as { ok?: boolean } | null)?.ok === true;
+});
+
+/**
+ * Поточний користувач і профіль (кешується в межах запиту).
+ * Без чинної згоди на обробку персональних даних сесії застосунку немає.
+ */
+export const getSession = cache(async (): Promise<Session | null> => {
+  const user = await getAuthUser();
+  if (!user) return null;
+  const profile = await getProfile();
   if (!profile) return null;
+  if (!(await hasValidConsent())) return null;
   return { userId: user.id, email: user.email ?? null, profile, isAdmin: profile.role === "admin" && profile.is_active };
 });
 
-/** Куди спрямувати користувача без сесії застосунку: вхід або «Доступ обмежено»
- *  (обліковий запис Auth є, але профілю немає — інакше виникла б петля перенаправлень). */
+/** Куди спрямувати користувача без сесії застосунку:
+ *  немає входу → сторінка входу;
+ *  є вхід і профіль, але немає згоди → примусовий вихід і повторний вхід зі згодою;
+ *  є вхід, але немає профілю → «Доступ обмежено» (інакше виникла б петля перенаправлень). */
 export async function unauthenticatedRedirect(): Promise<never> {
-  redirect((await getAuthUser()) ? "/auth/inactive" : "/login");
+  if (!(await getAuthUser())) redirect("/login");
+  if ((await getProfile()) && !(await hasValidConsent())) redirect("/auth/signout?notice=consent");
+  redirect("/auth/inactive");
 }
 
 export async function requireSession(): Promise<Session> {

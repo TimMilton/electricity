@@ -34,6 +34,19 @@ test.describe("Публічні сторінки та захист маршру�
     await expect(page.getByText("Некоректна електронна пошта")).toBeVisible();
   });
 
+  test("вхід без позначки згоди неможливий; умови доступні без входу", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByText("Згода на обробку персональних даних")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: /даю згоду на обробку/ })).not.toBeChecked();
+    await page.getByLabel("Номер квартири").fill("12");
+    await page.getByLabel("Код доступу").fill("ABCDE-12345");
+    await page.getByRole("button", { name: "Увійти" }).click();
+    await expect(page.getByText(/поставте позначку згоди/)).toBeVisible();
+    await page.goto("/privacy");
+    await expect(page).toHaveURL(/\/privacy/);
+    await expect(page.getByRole("heading", { name: /Обробка персональних даних/ })).toBeVisible();
+  });
+
   test("старі адреси реєстрації та відновлення пароля ведуть на вхід", async ({ page }) => {
     await page.goto("/register");
     await expect(page).toHaveURL(/\/login/);
@@ -42,7 +55,7 @@ test.describe("Публічні сторінки та захист маршру�
   });
 
   test("30. сторінки адаптуються до смартфона без горизонтальної прокрутки", async ({ page }) => {
-    for (const path of ["/login"]) {
+    for (const path of ["/login", "/privacy"]) {
       await page.goto(path);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, path).toBeLessThanOrEqual(0);

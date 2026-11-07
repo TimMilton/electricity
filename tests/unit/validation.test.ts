@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, parseApartmentsCsv, readingSubmissionSchema, settingsSchema } from "@/lib/validation";
+import { loginConsentSchema, loginSchema, parseApartmentsCsv, readingSubmissionSchema, settingsSchema } from "@/lib/validation";
 import { apartmentLoginEmail, generateAccessCode, normalizeAccessCode } from "@/lib/access-code";
 import { randomBytes } from "node:crypto";
 import { sanitizeFilename, sniffMime, validateReceiptFile } from "@/lib/files";
@@ -28,6 +28,13 @@ describe("Валідація показників і внесків (Zod)", () =
       const res = readingSubmissionSchema.safeParse({ apartmentId: id, periodId: id, deposit: "", hallLighting: "", other: "", ...bad });
       expect(res.success, JSON.stringify(bad)).toBe(false);
     }
+  });
+
+  it("вхід: позначка згоди обов'язкова", () => {
+    expect(loginConsentSchema.safeParse("yes").success).toBe(true);
+    expect(loginConsentSchema.safeParse(null).success).toBe(false);
+    expect(loginConsentSchema.safeParse("").success).toBe(false);
+    expect(loginConsentSchema.safeParse("on").success).toBe(false);
   });
 
   it("вхід: номер квартири або пошта адміністратора", () => {

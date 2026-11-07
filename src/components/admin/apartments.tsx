@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy, KeyRound, Pencil, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
+  eraseApartmentPersonalDataAction,
   generateCodeAction,
   generateCodesBulkAction,
   importApartmentsAction,
@@ -273,6 +274,36 @@ export function ImportApartments() {
         {pending ? "Імпортуємо…" : "Імпортувати"}
       </Button>
     </div>
+  );
+}
+
+/** Видалення персональних даних квартири за зверненням мешканця. */
+export function ErasePersonalData({ apartmentId, number }: { apartmentId: string; number: string }) {
+  const { run } = useAction();
+  const [reason, setReason] = useState("");
+  return (
+    <ConfirmDialog
+      trigger={<Button size="sm" variant="ghost" className="text-danger">Видалити ПД</Button>}
+      title={`Видалити персональні дані квартири №${number}?`}
+      description="Прізвище й під'їзд буде видалено (зокрема з журналу змін), згоду відкликано, обліковий запис квартири деактивовано. Розрахунки лишаються за номером квартири. Дію не можна скасувати."
+      confirmLabel="Видалити дані"
+      tone="danger"
+      onConfirm={() => {
+        if (reason.trim().length < 3) {
+          toast.error("Вкажіть підставу видалення");
+          return false;
+        }
+        return run(() => eraseApartmentPersonalDataAction({ apartmentId, reason }));
+      }}
+    >
+      <Field
+        label="Підстава (обов'язково)"
+        htmlFor={`erase-${apartmentId}`}
+        hint="Напр.: «звернення мешканця від 07.11.2026». Прізвище сюди не пишіть — його однаково буде замінено."
+      >
+        <Input id={`erase-${apartmentId}`} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+    </ConfirmDialog>
   );
 }
 

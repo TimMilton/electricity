@@ -72,6 +72,15 @@ export function siteUrl(): string {
 }
 
 /**
+ * Контакт адміністратора застосунку для звернень щодо персональних даних
+ * (телефон, пошта, Telegram — довільний текст). Показується на сторінці
+ * «Обробка персональних даних і умови користування».
+ */
+export function legalAdminContact(): string | null {
+  return first(process.env.LEGAL_ADMIN_CONTACT) ?? null;
+}
+
+/**
  * Стала назва cookie сесії: не залежить від адреси Supabase, тож зміна
  * SUPABASE_URL (напр. внутрішня адреса в Docker) не розлогінює користувачів.
  */

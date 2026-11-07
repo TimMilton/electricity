@@ -28,6 +28,7 @@ async function loginAsAdmin(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.getByLabel("Номер квартири").fill(adminEmail);
   await page.getByLabel("Код доступу").fill(password);
+  await page.getByRole("checkbox", { name: /даю згоду на обробку/ }).check();
   await page.getByRole("button", { name: "Увійти" }).click();
   await page.waitForURL(/\/admin/);
 }
@@ -72,12 +73,14 @@ test("1–4, 9–15. мешканець: вхід за номером кварт
   await page.goto("/login");
   await page.getByLabel("Номер квартири").fill(aptNumber);
   await page.getByLabel("Код доступу").fill("AAAAA-BBBBB");
+  await page.getByRole("checkbox", { name: /даю згоду на обробку/ }).check();
   await page.getByRole("button", { name: "Увійти" }).click();
   await expect(page.getByText(/Невірний номер квартири або код доступу/)).toBeVisible();
 
   // правильний код, у нижньому регістрі й без дефіса — теж приймається
   await page.getByLabel("Номер квартири").fill(aptNumber.toLowerCase());
   await page.getByLabel("Код доступу").fill(code.replace("-", "").toLowerCase());
+  await page.getByRole("checkbox", { name: /даю згоду на обробку/ }).check();
   await page.getByRole("button", { name: "Увійти" }).click();
   await expect(page.getByRole("heading", { name: `Квартира №${aptNumber}` })).toBeVisible();
 

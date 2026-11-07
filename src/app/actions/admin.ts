@@ -247,6 +247,22 @@ export async function setUserActiveAction(input: unknown): Promise<ActionResult>
   });
 }
 
+/** Видалити персональні дані квартири на прохання мешканця (ст. 8, 15 Закону № 2297-VI). */
+export async function eraseApartmentPersonalDataAction(input: unknown): Promise<ActionResult> {
+  return guard(async () => {
+    const parsed = z.object({ apartmentId: uuid, reason: requiredReason }).safeParse(input);
+    if (!parsed.success) return zodToResult(parsed.error.issues);
+    const supabase = await admin();
+    const { error } = await supabase.rpc("admin_erase_apartment_personal_data", {
+      p_apartment_id: parsed.data.apartmentId,
+      p_reason: parsed.data.reason,
+    });
+    if (error) return dbErrorToResult(error);
+    refresh();
+    return { ok: true, message: "Персональні дані квартири видалено, обліковий запис деактивовано" };
+  });
+}
+
 export async function setUserRoleAction(input: unknown): Promise<ActionResult> {
   return guard(async () => {
     const parsed = z.object({ profileId: uuid, role: z.enum(["resident", "admin"]), reason: requiredReason }).safeParse(input);

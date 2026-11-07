@@ -5,7 +5,7 @@ import { formatReading } from "@/lib/money";
 import { formatDateTime } from "@/lib/utils";
 import { Button, EmptyState, PageHeader, Panel } from "@/components/ui/controls";
 import { Tag } from "@/components/ui/status";
-import { ApartmentEditor, BulkCodes, CodeButton, ImportApartments, UserActions } from "@/components/admin/apartments";
+import { ApartmentEditor, BulkCodes, CodeButton, ErasePersonalData, ImportApartments, UserActions } from "@/components/admin/apartments";
 import { enterViewAsAction } from "@/app/actions/admin";
 import { EntranceFilter, EntranceSelect } from "@/components/admin/entrance-controls";
 import { getEntranceMap, matchesEntrance, parseEntranceFilter } from "@/lib/entrance";
@@ -25,6 +25,8 @@ type AptRow = {
   initial_reading_date: string | null;
   accounts_count: number;
 };
+
+type ConsentRow = { apartment_id: string; event: "granted" | "withdrawn"; consent_version: string; created_at: string };
 
 type UserRow = {
   profile_id: string;
@@ -46,11 +48,20 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
   const sp = await searchParams;
   const entranceFilter = parseEntranceFilter(sp.entrance);
   const supabase = await createClient();
-  const [{ data: apts }, { data: users }, entrances] = await Promise.all([
+  const [{ data: apts }, { data: users }, entrances, { data: consents }] = await Promise.all([
     supabase.rpc("admin_list_apartments"),
     supabase.rpc("admin_list_users"),
     getEntranceMap(supabase),
+    supabase
+      .from("personal_data_consents")
+      .select("apartment_id, event, consent_version, created_at")
+      .not("apartment_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5000),
   ]);
+  // Остання подія згоди по кожній квартирі
+  const consentByApt = new Map<string, ConsentRow>();
+  for (const c of (consents ?? []) as ConsentRow[]) if (!consentByApt.has(c.apartment_id)) consentByApt.set(c.apartment_id, c);
   const allApartments = (apts ?? []) as AptRow[];
   const apartments = allApartments.filter((a) => matchesEntrance(entrances.get(a.id), entranceFilter));
   const entranceCounts = [1, 2, 3].map((n) => allApartments.filter((a) => entrances.get(a.id) === n).length);
@@ -74,13 +85,14 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
             )
           ) : (
             <div className="-mx-4 overflow-x-auto sm:-mx-5">
-              <table className="w-full min-w-[900px] text-[15px]">
+              <table className="w-full min-w-[1100px] text-[15px]">
                 <thead className="bg-casing text-left text-sm text-ink-soft">
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Кв.</th>
                     <th className="px-3 py-2.5 font-medium">Під&apos;їзд</th>
                     <th className="px-3 py-2.5 font-medium">Прізвище</th>
                     <th className="px-3 py-2.5 font-medium">Доступ</th>
+                    <th className="px-3 py-2.5 font-medium">Згода на обробку ПД</th>
                     <th className="px-3 py-2.5 text-right font-medium">Початковий показник</th>
                     <th className="px-3 py-2.5 font-medium"><span className="sr-only">Дії</span></th>
                   </tr>
@@ -106,6 +118,14 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
                           <Tag tone="neutral">Немає коду</Tag>
                         )}
                       </td>
+                      <td className="px-3 py-2.5 text-sm">
+                        {(() => {
+                          const c = consentByApt.get(a.id);
+                          if (!c) return <span className="text-ink-soft">ще не надано</span>;
+                          if (c.event === "withdrawn") return <Tag tone="danger">Відкликано {formatDateTime(c.created_at)}</Tag>;
+                          return <span>надано {formatDateTime(c.created_at)} <span className="text-ink-soft">(ред. {c.consent_version})</span></span>;
+                        })()}
+                      </td>
                       <td className="tabular px-3 py-2.5 text-right">{a.initial_reading === null ? "—" : formatReading(a.initial_reading)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1.5">
@@ -122,6 +142,7 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
                             <Button type="submit" size="sm" variant="ghost">Переглянути</Button>
                           </form>
                           <ApartmentEditor apartment={a} />
+                          <ErasePersonalData apartmentId={a.id} number={a.apartment_number} />
                         </div>
                       </td>
                     </tr>

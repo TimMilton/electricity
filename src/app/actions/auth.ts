@@ -1,12 +1,14 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getSession, VIEW_AS_COOKIE } from "@/lib/auth";
 import { zodToResult } from "@/lib/errors";
-import { loginSchema, resetPasswordSchema } from "@/lib/validation";
+import { CONSENT_REQUIRED_MESSAGE, loginConsentSchema, loginSchema, resetPasswordSchema } from "@/lib/validation";
 import { normalizeAccessCode } from "@/lib/access-code";
+import { CONSENT_VERSION, consentCanonicalText } from "@/lib/legal";
 import type { ActionResult } from "@/lib/types";
 
 const RESIDENT_LOGIN_FAILED = "Невірний номер квартири або код доступу. Якщо код загубився, зверніться до адміністратора";
@@ -33,10 +35,19 @@ function safeNext(next: FormDataEntryValue | null): string {
  * Вхід:
  *   мешканець — номер квартири + код доступу від адміністратора;
  *   адміністратор — електронна пошта + пароль (у тому самому полі).
+ * Обидва — лише з позначкою згоди на обробку персональних даних; факт згоди
+ * (версія й хеш тексту, час, IP, браузер) записується в personal_data_consents.
  */
 export async function signInAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const parsed = loginSchema.safeParse({ login: formData.get("login"), secret: formData.get("secret") });
-  if (!parsed.success) return zodToResult(parsed.error.issues);
+  const consent = loginConsentSchema.safeParse(formData.get("consent"));
+  if (!parsed.success || !consent.success) {
+    const issues = [
+      ...(parsed.success ? [] : parsed.error.issues),
+      ...(consent.success ? [] : [{ path: ["consent"], message: CONSENT_REQUIRED_MESSAGE }]),
+    ];
+    return zodToResult(issues);
+  }
   const { login, secret } = parsed.data;
   const isAdminLogin = login.includes("@");
 
@@ -62,8 +73,29 @@ export async function signInAction(_prev: ActionResult | null, formData: FormDat
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { ok: false, error: isAdminLogin ? ADMIN_LOGIN_FAILED : RESIDENT_LOGIN_FAILED };
+  const { data: signedIn, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !signedIn.user) return { ok: false, error: isAdminLogin ? ADMIN_LOGIN_FAILED : RESIDENT_LOGIN_FAILED };
+
+  // Без збереженого доказу згоди вхід не завершується
+  const h = await headers();
+  const { error: consentError } = await createServiceClient().rpc("system_record_consent", {
+    p_auth_user_id: signedIn.user.id,
+    p_version: CONSENT_VERSION,
+    p_text_sha256: createHash("sha256").update(consentCanonicalText(), "utf8").digest("hex"),
+    p_ip: ip,
+    p_user_agent: h.get("user-agent") ?? "",
+  });
+  if (consentError) {
+    console.error("system_record_consent:", consentError.code, consentError.message);
+    await supabase.auth.signOut({ scope: "local" });
+    return {
+      ok: false,
+      error:
+        consentError.code === "P0001"
+          ? consentError.message
+          : "Не вдалося зберегти згоду на обробку персональних даних. Спробуйте ще раз або зверніться до адміністратора",
+    };
+  }
   redirect(safeNext(formData.get("next")));
 }
 
@@ -88,4 +120,27 @@ export async function signOutAction(): Promise<void> {
   await supabase.auth.signOut();
   (await cookies()).delete(VIEW_AS_COOKIE);
   redirect("/login");
+}
+
+/**
+ * Мешканець відкликає згоду і видаляє свої персональні дані:
+ * прізвище й під'їзд квартири, прізвище в обліковому записі та в журналі змін.
+ * Обліковий запис деактивується; облікові записи розрахунків лишаються за номером квартири.
+ */
+export async function eraseMyPersonalDataAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  if (formData.get("confirm") !== "yes") {
+    return { ok: false, error: "Підтвердіть, що розумієте наслідки видалення", fieldErrors: { confirm: "Поставте позначку" } };
+  }
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Потрібно увійти в систему" };
+  if (session.isAdmin) return { ok: false, error: "Адміністратор не може видалити власні дані цим способом" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("resident_erase_my_personal_data");
+  if (error) {
+    console.error("resident_erase_my_personal_data:", error.code, error.message);
+    return { ok: false, error: error.code === "P0001" ? error.message : "Не вдалося видалити дані. Спробуйте пізніше або зверніться до адміністратора" };
+  }
+  await supabase.auth.signOut();
+  (await cookies()).delete(VIEW_AS_COOKIE);
+  redirect("/login?notice=erased");
 }

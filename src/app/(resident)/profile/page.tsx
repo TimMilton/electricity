@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireSession, getActingContext } from "@/lib/auth";
 import { signOutAction } from "@/app/actions/auth";
 import { Button, PageHeader, Panel, Row } from "@/components/ui/controls";
-import { ChangePasswordForm } from "@/components/auth-forms";
+import { ChangePasswordForm, EraseMyDataForm } from "@/components/auth-forms";
+import { createClient } from "@/lib/supabase/server";
+import { formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Профіль" };
 
 export default async function ProfilePage() {
   const session = await requireSession();
   const ctx = await getActingContext();
+  const supabase = await createClient();
+  const { data: consent } = await supabase.rpc("my_consent_status");
+  const consentInfo = consent as { version?: string; granted_at?: string | null } | null;
   return (
     <>
       <PageHeader title="Профіль" />
@@ -37,6 +43,27 @@ export default async function ProfilePage() {
               Ви входите за номером квартири та кодом доступу. Код діє постійно. Якщо він загубився або ним міг скористатися
               хтось інший, попросіть адміністратора будинку видати новий — старий одразу перестане діяти.
             </p>
+          </Panel>
+        )}
+        <Panel title="Персональні дані">
+          <dl>
+            <Row label="Згода на обробку" value={consentInfo?.granted_at ? `надано ${formatDateTime(consentInfo.granted_at)}` : "—"} />
+            <Row label="Редакція умов" value={consentInfo?.version ?? "—"} />
+          </dl>
+          <p className="mt-3 text-sm">
+            <Link href="/privacy" className="font-medium text-face underline underline-offset-4">
+              Обробка персональних даних і умови користування
+            </Link>
+          </p>
+          {session.isAdmin && (
+            <p className="mt-3 text-sm text-ink-soft">
+              Дані мешканця на його прохання видаляються в розділі «Квартири» (кнопка «Видалити ПД» у рядку квартири).
+            </p>
+          )}
+        </Panel>
+        {!session.isAdmin && !ctx?.viewAs && (
+          <Panel title="Відкликати згоду та видалити мої дані" description="Можна зробити самостійно, без звернення до адміністратора.">
+            <EraseMyDataForm />
           </Panel>
         )}
       </div>

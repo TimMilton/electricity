@@ -52,6 +52,7 @@ services:
       SITE_URL: ${PUBLIC_URL:-http://localhost:8080}
       CRON_SECRET: ${CRON_SECRET:?Створіть .env командою node docker/init-env.mjs}
       ENABLE_PREVIEW: ${ENABLE_PREVIEW:-0}
+      LEGAL_ADMIN_CONTACT: ${LEGAL_ADMIN_CONTACT:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

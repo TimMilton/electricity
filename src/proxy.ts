@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { AUTH_COOKIE_NAME, supabaseAnonKeyOrNull, supabasePublicUrl, supabaseUrlOrNull } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/register", "/auth", "/setup-required", "/preview"];
+const PUBLIC_PATHS = ["/login", "/register", "/auth", "/setup-required", "/preview", "/privacy"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));

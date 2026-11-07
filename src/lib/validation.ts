@@ -102,6 +102,10 @@ export const loginSchema = z
   });
 
 
+/** Позначка згоди на обробку персональних даних у формі входу. */
+export const CONSENT_REQUIRED_MESSAGE = "Щоб увійти, ознайомтеся з умовами та поставте позначку згоди на обробку персональних даних";
+export const loginConsentSchema = z.literal("yes", { error: CONSENT_REQUIRED_MESSAGE });
+
 export const resetPasswordSchema = z
   .object({ password: passwordSchema, passwordConfirm: z.string() })
   .refine((d) => d.password === d.passwordConfirm, { path: ["passwordConfirm"], message: "Паролі не збігаються" });
