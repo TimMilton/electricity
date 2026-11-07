@@ -114,7 +114,7 @@ export async function saveApartmentAction(input: unknown): Promise<ActionResult>
     const { error } = await supabase.rpc("admin_upsert_apartment", {
       p_id: d.id ?? null,
       p_apartment_number: d.apartmentNumber,
-      p_resident_surname: d.residentSurname,
+      p_resident_surname: d.residentSurname ?? null,
       p_is_active: d.isActive,
       p_initial_reading: d.initialReading ?? null,
       p_initial_reading_date: d.initialReadingDate ?? null,
@@ -210,15 +210,15 @@ export async function generateCodeAction(apartmentId: string): Promise<ActionRes
 
 /** Коди для всіх активних квартир, які ще не мають доступу. Наявні коди не змінюються. */
 export async function generateCodesBulkAction(): Promise<
-  ActionResult<{ codes: { apartment_number: string; resident_surname: string; code: string }[]; failed: string[] }>
+  ActionResult<{ codes: { apartment_number: string; resident_surname: string | null; code: string }[]; failed: string[] }>
 > {
   return guard(async () => {
     const supabase = await admin();
     const { data, error } = await supabase.rpc("admin_list_apartments");
     if (error) return dbErrorToResult(error);
-    const targets = ((data ?? []) as { id: string; apartment_number: string; resident_surname: string; is_active: boolean; accounts_count: number }[])
+    const targets = ((data ?? []) as { id: string; apartment_number: string; resident_surname: string | null; is_active: boolean; accounts_count: number }[])
       .filter((a) => a.is_active && a.accounts_count === 0);
-    const codes: { apartment_number: string; resident_surname: string; code: string }[] = [];
+    const codes: { apartment_number: string; resident_surname: string | null; code: string }[] = [];
     const failed: string[] = [];
     for (const a of targets) {
       const res = await issueAccessCode(supabase, a.id);

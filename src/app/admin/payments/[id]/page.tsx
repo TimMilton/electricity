@@ -39,7 +39,7 @@ export default async function AdminPaymentPage({ params }: PageProps<"/admin/pay
     .maybeSingle();
   if (!data) notFound();
   const payment = data as Payment & {
-    apartments: { id: string; apartment_number: string; resident_surname: string };
+    apartments: { id: string; apartment_number: string; resident_surname: string | null };
     billing_periods: { year: number; month: number };
   };
   const [{ data: receipts }, { data: events }, { data: ledger }, settings] = await Promise.all([
@@ -54,7 +54,7 @@ export default async function AdminPaymentPage({ params }: PageProps<"/admin/pay
     <>
       <PageHeader
         title={`Квартира №${payment.apartments.apartment_number}`}
-        description={`${payment.apartments.resident_surname}, ${periodLabel(payment.billing_periods).toLowerCase()}`}
+        description={[payment.apartments.resident_surname, periodLabel(payment.billing_periods).toLowerCase()].filter(Boolean).join(", ")}
         actions={
           <Button asChild variant="outline">
             <Link href="/admin/payments">До списку платежів</Link>

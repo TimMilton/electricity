@@ -278,3 +278,25 @@ export async function submitDepositTopupAction(input: unknown): Promise<ActionRe
   revalidatePath("/deposit");
   return { ok: true, message: "Внесок надіслано на перевірку адміністратору" };
 }
+
+/**
+ * Мешканець сам вказує, змінює або видаляє (порожнє значення) прізвище та ім'я своєї квартири.
+ * Номер квартири змінює лише адміністратор.
+ */
+export async function setMyNameAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const parsed = z
+    .string()
+    .trim()
+    .max(100, "Не більше 100 символів")
+    .safeParse(formData.get("name") ?? "");
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message, fieldErrors: { name: parsed.error.issues[0]!.message } };
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Потрібно увійти в систему" };
+  if (session.isAdmin) return { ok: false, error: "Ім'я квартири змінює її мешканець або адміністратор у розділі «Квартири»" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("resident_set_my_name", { p_name: parsed.data });
+  if (error) return dbErrorToResult(error);
+  revalidateResident();
+  revalidatePath("/profile");
+  return { ok: true, message: parsed.data ? "Збережено" : "Прізвище та ім'я видалено" };
+}

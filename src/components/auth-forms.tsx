@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Button, Checkbox, Field, Input, Notice } from "@/components/ui/controls";
 import { changePasswordAction, eraseMyPersonalDataAction, signInAction } from "@/app/actions/auth";
-import { CONSENT_POINTS } from "@/lib/legal";
+import { setMyNameAction } from "@/app/actions/resident";
 import type { ActionResult } from "@/lib/types";
 
 function fieldError(state: ActionResult | null, name: string) {
@@ -17,37 +17,35 @@ function FormError({ state }: { state: ActionResult | null }) {
 }
 
 /**
- * Згода на обробку персональних даних. Позначка не стоїть заздалегідь:
- * її ставить сам користувач під час кожного входу (ст. 2, 11 Закону № 2297-VI).
+ * Згода на обробку персональних даних: лише позначка з посиланням на повний текст (/privacy).
+ * Позначка не стоїть заздалегідь — її ставить сам користувач під час кожного входу.
  */
 function ConsentBlock({ error }: { error?: string }) {
   return (
-    <fieldset className="rounded-[var(--radius-control)] border border-line bg-casing/40 p-4" aria-describedby="consent-points">
-      <legend className="px-1 text-sm font-semibold">Згода на обробку персональних даних</legend>
-      <ol id="consent-points" className="flex list-decimal flex-col gap-2 pl-5 text-sm text-ink-soft">
-        {CONSENT_POINTS.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ol>
-      <p className="mt-2 text-sm">
-        <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-face underline underline-offset-4">
-          Повідомлення про обробку персональних даних та Умови користування
-        </Link>
-      </p>
-      <Checkbox
-        className="mt-3 font-medium"
-        name="consent"
-        value="yes"
-        required
-        aria-invalid={error ? true : undefined}
-        label="Я ознайомився(-лася), погоджуюся з наведеним і даю згоду на обробку моїх персональних даних"
-      />
+    <div className="flex flex-col gap-1.5">
+      <label className="flex cursor-pointer items-start gap-3 text-[15px]">
+        <input
+          type="checkbox"
+          name="consent"
+          value="yes"
+          required
+          aria-invalid={error ? true : undefined}
+          className="mt-0.5 size-5 shrink-0 accent-[var(--face)]"
+        />
+        <span>
+          Я погоджуюся з{" "}
+          <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-face underline underline-offset-4">
+            умовами користування та обробки персональних даних
+          </Link>{" "}
+          і даю згоду на обробку моїх персональних даних
+        </span>
+      </label>
       {error && (
-        <p className="mt-2 text-sm text-danger" role="alert">
+        <p className="text-sm text-danger" role="alert">
           {error}
         </p>
       )}
-    </fieldset>
+    </div>
   );
 }
 
@@ -85,6 +83,28 @@ export function LoginForm({ next }: { next?: string }) {
   );
 }
 
+/** Мешканець вказує, змінює або видаляє прізвище та ім'я своєї квартири. */
+export function MyNameForm({ current }: { current: string | null }) {
+  const [state, action, pending] = useActionState(setMyNameAction, null);
+  return (
+    <form action={action} className="flex flex-col gap-3" noValidate>
+      {state?.ok && <Notice tone="ok">{state.message}</Notice>}
+      <FormError state={state} />
+      <Field
+        label="Прізвище та ім'я (необов'язково)"
+        htmlFor="my-name"
+        hint="Можна залишити порожнім — квартира визначається номером. Інші мешканці бачать це ім'я в загальній таблиці."
+        error={fieldError(state, "name")}
+      >
+        <Input id="my-name" name="name" defaultValue={current ?? ""} maxLength={100} autoComplete="name" />
+      </Field>
+      <Button type="submit" className="self-start" disabled={pending}>
+        {pending ? "Зберігаємо…" : "Зберегти"}
+      </Button>
+    </form>
+  );
+}
+
 /** Відкликання згоди та видалення персональних даних мешканцем. */
 export function EraseMyDataForm() {
   const [state, action, pending] = useActionState(eraseMyPersonalDataAction, null);
@@ -93,10 +113,10 @@ export function EraseMyDataForm() {
       <FormError state={state} />
       <Notice tone="warn" title="Що станеться">
         <ul className="list-disc pl-5">
-          <li>прізвище та під&apos;їзд вашої квартири буде видалено, зокрема з журналу змін;</li>
+          <li>прізвище та ім&apos;я вашої квартири буде видалено, зокрема з журналу змін;</li>
           <li>згоду буде відкликано, а обліковий запис квартири — деактивовано (ви вийдете з застосунку);</li>
           <li>
-            записи розрахунків (показники, суми, платежі, квитанції) лишаться за номером квартири без прізвища — вони потрібні для
+            облікові дані квартири (показники, суми, платежі, квитанції) лишаться за номером квартири — вони потрібні для
             спільних розрахунків будинку;
           </li>
           <li>щоб повернутися, попросіть адміністратора видати новий код доступу.</li>

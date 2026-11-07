@@ -104,8 +104,8 @@ export default async function AuditPage({ searchParams }: PageProps<"/admin/audi
   if (entity) q = q.eq("entity_id", entity);
   const [{ data, count }, { data: users }] = await Promise.all([q, supabase.rpc("admin_list_users")]);
   const logs = (data ?? []) as Log[];
-  const names = new Map(((users ?? []) as { auth_user_id: string; surname: string; email: string; apartment_number: string | null }[])
-    .map((u) => [u.auth_user_id, `${u.surname}${u.apartment_number ? `, кв. ${u.apartment_number}` : ""}`]));
+  const names = new Map(((users ?? []) as { auth_user_id: string; surname: string | null; email: string; apartment_number: string | null }[])
+    .map((u) => [u.auth_user_id, [u.surname, u.apartment_number ? `кв. ${u.apartment_number}` : null].filter(Boolean).join(", ") || u.email]));
   const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE));
   const link = (p: number) => `/admin/audit?${new URLSearchParams({ ...(group ? { group } : {}), ...(entity ? { entity } : {}), page: String(p) })}`;
 

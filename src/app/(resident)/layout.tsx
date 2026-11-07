@@ -33,7 +33,8 @@ export default async function ResidentLayout({ children }: { children: React.Rea
             <Brand href="/home" />
             {ctx && (
               <span className="hidden rounded-full bg-face-soft px-3 py-1 text-sm font-medium text-face-strong sm:inline">
-                Кв. {ctx.apartment.apartment_number}, {ctx.apartment.resident_surname}
+                Кв. {ctx.apartment.apartment_number}
+                {ctx.apartment.resident_surname ? `, ${ctx.apartment.resident_surname}` : ""}
               </span>
             )}
           </div>

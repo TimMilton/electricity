@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-sm">Адміністратор</span>
           </div>
           <div className="flex items-center gap-2 text-[15px]">
-            <span className="hidden text-white/80 sm:inline">{session.profile.surname}</span>
+            <span className="hidden text-white/80 sm:inline">{session.profile.surname ?? session.email}</span>
             <form action={signOutAction}>
               <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] px-3 hover:bg-white/10">
                 <LogOut className="size-4" aria-hidden />

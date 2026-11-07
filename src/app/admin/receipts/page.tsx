@@ -18,7 +18,7 @@ type Row = Receipt & {
     id: string;
     status: PaymentStatus;
     billing_period_id: string;
-    apartments: { apartment_number: string; resident_surname: string } | null;
+    apartments: { apartment_number: string; resident_surname: string | null } | null;
     billing_periods: { year: number; month: number } | null;
   } | null;
 };
@@ -53,7 +53,8 @@ export default async function AdminReceiptsPage({ searchParams }: PageProps<"/ad
             <Panel key={r.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <Link href={`/admin/payments/${r.payments?.id}`} className="font-semibold text-face underline underline-offset-4">
-                  Кв. {r.payments?.apartments?.apartment_number}, {r.payments?.apartments?.resident_surname}
+                  Кв. {r.payments?.apartments?.apartment_number}
+                  {r.payments?.apartments?.resident_surname ? `, ${r.payments.apartments.resident_surname}` : ""}
                 </Link>
                 {r.payments && <PaymentStatusBadge status={r.payments.status} />}
               </div>

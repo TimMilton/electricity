@@ -66,7 +66,7 @@ export async function listDepositTopups(opts: { apartmentId?: string; status?: T
     return [];
   }
   type Row = Omit<DepositTopupView, "receipts" | "apartment_number" | "resident_surname"> & {
-    apartments: { apartment_number: string; resident_surname: string } | null;
+    apartments: { apartment_number: string; resident_surname: string | null } | null;
     deposit_topup_receipts: { id: string; storage_path: string; original_filename: string; mime_type: string; file_size: number; created_at: string }[];
   };
   const rows = (data ?? []) as unknown as Row[];

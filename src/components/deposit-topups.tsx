@@ -30,7 +30,7 @@ export function TopupList({ items, showApartment, actions }: {
             <div>
               <p className="tabular text-lg font-bold">{formatMoney(t.amount)}</p>
               <p className="text-sm text-ink-soft">
-                {showApartment && t.apartment_number ? `Кв. ${t.apartment_number}, ${t.resident_surname} · ` : ""}
+                {showApartment && t.apartment_number ? `Кв. ${t.apartment_number}${t.resident_surname ? `, ${t.resident_surname}` : ""} · ` : ""}
                 Подано {formatDateTime(t.created_at)}
                 {t.status === "paid" && t.reviewed_at ? ` · зараховано ${formatDateTime(t.reviewed_at)}` : ""}
               </p>

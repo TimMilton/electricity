@@ -83,7 +83,9 @@ describe("Валідація показників і внесків (Zod)", () =
       { apartment_number: "1", resident_surname: "Іваненко", initial_reading: "123.50" },
       { apartment_number: "2", resident_surname: "Петренко" },
     ]);
-    const bad = parseApartmentsCsv("1,\n");
+    // прізвище та ім'я необов'язкові; номер квартири — обов'язковий
+    expect(parseApartmentsCsv("3\n4,\n").rows).toEqual([{ apartment_number: "3" }, { apartment_number: "4" }]);
+    const bad = parseApartmentsCsv(";Іваненко\n");
     expect(bad.errors.length).toBe(1);
   });
 });

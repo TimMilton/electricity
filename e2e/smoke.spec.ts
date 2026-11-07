@@ -36,7 +36,7 @@ test.describe("Публічні сторінки та захист маршру�
 
   test("вхід без позначки згоди неможливий; умови доступні без входу", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByText("Згода на обробку персональних даних")).toBeVisible();
+    await expect(page.getByRole("link", { name: /умовами користування та обробки персональних даних/ })).toHaveAttribute("href", "/privacy");
     await expect(page.getByRole("checkbox", { name: /даю згоду на обробку/ })).not.toBeChecked();
     await page.getByLabel("Номер квартири").fill("12");
     await page.getByLabel("Код доступу").fill("ABCDE-12345");

@@ -38,9 +38,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
         ["Період", periodLabel(period!)],
         generated,
         [],
-        ["Квартира", "Під'їзд", "Прізвище", "Попередній", "Поточний", "Спожито, кВт·год", "Тариф", "Електроенергія", "Депозит", "Освітлення", "Інші", "Разом", "Статус", "Подано", "Підтверджено"],
+        ["Квартира", "Під'їзд", "Прізвище та ім'я", "Попередній", "Поточний", "Спожито, кВт·год", "Тариф", "Електроенергія", "Депозит", "Освітлення", "Інші", "Разом", "Статус", "Подано", "Підтверджено"],
         ...rows.map((r) => [
-          r.apartment_number, r.entrance ?? "", r.resident_surname,
+          r.apartment_number, r.entrance ?? "", r.resident_surname ?? "",
           r.has_reading ? m(r.previous_reading) : "Не внесено", r.has_reading ? m(r.current_reading) : "",
           m(r.consumption_kwh), t4(r.tariff_rate), m(r.electricity_amount), m(r.deposit_contribution),
           m(r.hall_lighting_amount), m(r.other_amount), m(r.total_amount),
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
         .from("payments")
         .select("*, apartments(apartment_number, resident_surname, sort_num), receipts(count)")
         .eq("billing_period_id", period!.id);
-      type P = { apartments: { apartment_number: string; resident_surname: string; sort_num: number | null }; receipts: { count: number }[]; [k: string]: unknown };
+      type P = { apartments: { apartment_number: string; resident_surname: string | null; sort_num: number | null }; receipts: { count: number }[]; [k: string]: unknown };
       const rows = ((data ?? []) as P[]).sort((a, b) => (a.apartments.sort_num ?? 0) - (b.apartments.sort_num ?? 0));
       return csvResponse(`platezhi-${slug}.csv`, [
         ["Платежі"],
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
         [],
         ["Квартира", "Прізвище", "Електроенергія", "Депозит", "Освітлення", "Інші", "Разом", "Статус", "Спроба", "Квитанцій", "Подано", "Переглянуто", "Без квитанції", "Причина відхилення", "Примітка"],
         ...rows.map((r) => [
-          r.apartments.apartment_number, r.apartments.resident_surname, m(r.electricity_amount), m(r.deposit_contribution),
+          r.apartments.apartment_number, r.apartments.resident_surname ?? "", m(r.electricity_amount), m(r.deposit_contribution),
           m(r.hall_lighting_amount), m(r.other_amount), m(r.total_amount), PAYMENT_STATUS_LABEL[r.status as PaymentStatus],
           r.attempt_no, r.receipts?.[0]?.count ?? 0,
           r.submitted_at ? formatDateTime(r.submitted_at as string) : "", r.reviewed_at ? formatDateTime(r.reviewed_at as string) : "",

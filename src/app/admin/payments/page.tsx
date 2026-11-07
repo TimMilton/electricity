@@ -14,7 +14,7 @@ import { getEntranceMap, matchesEntrance, parseEntranceFilter } from "@/lib/entr
 export const metadata: Metadata = { title: "Платежі" };
 
 type Row = Payment & {
-  apartments: { apartment_number: string; resident_surname: string; sort_num: number | null } | null;
+  apartments: { apartment_number: string; resident_surname: string | null; sort_num: number | null } | null;
   billing_periods: { year: number; month: number } | null;
   receipts: { count: number }[];
 };
@@ -44,7 +44,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps<"/ad
   if (q) {
     const ql = q.toLowerCase();
     rows = rows.filter(
-      (r) => r.apartments?.apartment_number.toLowerCase() === ql || r.apartments?.resident_surname.toLowerCase().includes(ql),
+      (r) => r.apartments?.apartment_number.toLowerCase() === ql || (r.apartments?.resident_surname ?? "").toLowerCase().includes(ql),
     );
   }
 

@@ -23,7 +23,7 @@ export function ResidentsTable({ rows, periodId, maxSizeMb }: { rows: PeriodTabl
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = rows.filter((r) => {
-      if (q && !r.apartment_number.toLowerCase().includes(q) && !r.resident_surname.toLowerCase().includes(q)) return false;
+      if (q && !r.apartment_number.toLowerCase().includes(q) && !(r.resident_surname ?? "").toLowerCase().includes(q)) return false;
       if (entrance === "none" && r.entrance != null) return false;
       if (entrance && entrance !== "none" && String(r.entrance) !== entrance) return false;
       if (status === "no_reading") return !r.has_reading;

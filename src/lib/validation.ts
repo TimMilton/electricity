@@ -142,7 +142,12 @@ export const tariffSchema = z.object({
 export const apartmentSchema = z.object({
   id: uuid.optional(),
   apartmentNumber: z.string().trim().min(1, "Вкажіть номер").max(20),
-  residentSurname: z.string().trim().min(1, "Вкажіть прізвище").max(100),
+  residentSurname: z
+    .string()
+    .trim()
+    .max(100, "Не більше 100 символів")
+    .optional()
+    .transform((v) => (v ? v : undefined)),
   isActive: z.boolean().default(true),
   initialReading: readingValue("Початковий показник").optional(),
   initialReadingDate: z.iso.date().optional(),
@@ -212,11 +217,11 @@ export const settingsSchema = z
 
 export const importRowSchema = z.object({
   apartment_number: z.string().trim().min(1).max(20),
-  resident_surname: z.string().trim().min(1).max(100),
+  resident_surname: z.string().trim().max(100).optional(),
   initial_reading: readingValue("Початковий показник").optional(),
 });
 
-/** Розбір CSV зі списком квартир: «номер;прізвище[;початковий показник]». */
+/** Розбір CSV зі списком квартир: «номер[;прізвище та ім'я][;початковий показник]». */
 export function parseApartmentsCsv(text: string): { rows: z.infer<typeof importRowSchema>[]; errors: string[] } {
   const rows: z.infer<typeof importRowSchema>[] = [];
   const errors: string[] = [];
@@ -230,7 +235,7 @@ export function parseApartmentsCsv(text: string): { rows: z.infer<typeof importR
     if (i === 0 && /номер|квартир|apartment/i.test(cells[0] ?? "")) return; // заголовок
     const parsed = importRowSchema.safeParse({
       apartment_number: cells[0] ?? "",
-      resident_surname: cells[1] ?? "",
+      resident_surname: cells[1] || undefined,
       initial_reading: cells[2] ? cells[2] : undefined,
     });
     if (parsed.success) rows.push(parsed.data);

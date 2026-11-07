@@ -4,7 +4,7 @@ import { apartmentLoginEmail } from "../../src/lib/access-code";
 
 let db: TestDb;
 let admin: string;
-const VERSION = "2026-11-07";
+const VERSION = "2026-11-07-2";
 
 beforeAll(async () => {
   db = await TestDb.create();
@@ -65,11 +65,10 @@ describe("Згода на обробку персональних даних", (
     const r = (await db.as<{ r: { accounts_deactivated: number } }>(uid, `select public.resident_erase_my_personal_data() as r`)).rows[0]!.r;
     expect(r.accounts_deactivated).toBe(1);
 
-    const a = (await db.sql(`select resident_surname, entrance from apartments where id = $1`, [apt])).rows[0]!;
-    expect(a.resident_surname).toBe("Дані видалено");
-    expect(a.entrance).toBeNull();
+    const a = (await db.sql(`select resident_surname from apartments where id = $1`, [apt])).rows[0]!;
+    expect(a.resident_surname).toBeNull();
     const p = (await db.sql(`select surname, is_active from profiles where auth_user_id = $1`, [uid])).rows[0]!;
-    expect(p).toMatchObject({ surname: "Дані видалено", is_active: false });
+    expect(p).toMatchObject({ surname: null, is_active: false });
     const left = await db.sql(
       `select count(*)::int as n from audit_logs
         where coalesce(previous_values::text, '') || coalesce(new_values::text, '') || coalesce(reason, '') ilike '%шевчук%'`,
@@ -93,6 +92,20 @@ describe("Згода на обробку персональних даних", (
     // мешканцю не можна викликати адміністративну функцію
     const other = await resident("107", "Савченко");
     await expectDbError(db.as(other.uid, `select public.admin_erase_apartment_personal_data($1, 'xxx')`, [apt]), /лише адміністратору/);
+  });
+
+  it("ім'я необов'язкове; мешканець сам вказує, змінює й видаляє його, але не номер квартири", async () => {
+    const { apt, uid } = await resident("108", "Гнатюк");
+    await db.as(admin, `select public.admin_upsert_apartment($1, '108', '', true, 0, null, null)`, [apt]);
+    expect((await db.sql(`select resident_surname from apartments where id = $1`, [apt])).rows[0]!.resident_surname).toBeNull();
+    await db.as(uid, `select public.resident_set_my_name('  Олена   Гнатюк ')`);
+    expect((await db.sql(`select resident_surname from apartments where id = $1`, [apt])).rows[0]!.resident_surname).toBe("Олена Гнатюк");
+    expect((await db.sql(`select surname from profiles where auth_user_id = $1`, [uid])).rows[0]!.surname).toBe("Олена Гнатюк");
+    await db.as(uid, `select public.resident_set_my_name('')`);
+    expect((await db.sql(`select resident_surname from apartments where id = $1`, [apt])).rows[0]!.resident_surname).toBeNull();
+    // номер квартири мешканець змінити не може (адміністративна функція)
+    await expectDbError(db.as(uid, `select public.admin_upsert_apartment($1, '999', null, true, 0, null, null)`, [apt]), /лише адміністратору/);
+    await expectDbError(db.as(admin, `select public.resident_set_my_name('X')`), /лише її мешканець/);
   });
 
   it("адміністратор не може «самовидалитися» функцією мешканця", async () => {

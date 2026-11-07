@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireSession, getActingContext } from "@/lib/auth";
 import { signOutAction } from "@/app/actions/auth";
 import { Button, PageHeader, Panel, Row } from "@/components/ui/controls";
-import { ChangePasswordForm, EraseMyDataForm } from "@/components/auth-forms";
+import { ChangePasswordForm, EraseMyDataForm, MyNameForm } from "@/components/auth-forms";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/utils";
 
@@ -21,13 +21,15 @@ export default async function ProfilePage() {
       <div className="grid gap-5 md:grid-cols-2">
         <Panel title="Обліковий запис">
           <dl>
-            <Row label="Прізвище" value={session.profile.surname} />
+            <Row label="Прізвище та ім'я" value={session.profile.surname ?? "не вказано"} />
             {session.isAdmin && <Row label="Електронна пошта" value={session.email ?? "—"} />}
             <Row label="Роль" value={session.isAdmin ? "Адміністратор" : "Мешканець"} />
             {ctx && !ctx.viewAs && <Row label="Квартира" value={`№${ctx.apartment.apartment_number}`} />}
           </dl>
           <p className="mt-3 text-sm text-ink-soft">
-            Щоб змінити прізвище чи прив&apos;язку до квартири, зверніться до адміністратора.
+            {session.isAdmin
+              ? "Прізвище та ім'я адміністратора змінюється через іншого адміністратора."
+              : "Номер квартири змінює адміністратор. Прізвище та ім'я ви можете змінити самі — нижче."}
           </p>
           <form action={signOutAction} className="mt-4">
             <Button type="submit" variant="outline">Вийти з облікового запису</Button>
@@ -43,6 +45,11 @@ export default async function ProfilePage() {
               Ви входите за номером квартири та кодом доступу. Код діє постійно. Якщо він загубився або ним міг скористатися
               хтось інший, попросіть адміністратора будинку видати новий — старий одразу перестане діяти.
             </p>
+          </Panel>
+        )}
+        {!session.isAdmin && !ctx?.viewAs && (
+          <Panel title="Прізвище та ім'я" description="Необов'язково: квартира визначається номером.">
+            <MyNameForm current={ctx?.apartment.resident_surname ?? null} />
           </Panel>
         )}
         <Panel title="Персональні дані">

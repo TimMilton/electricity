@@ -17,7 +17,7 @@ import type { BillingPeriod, HouseSummary, MeterReading, Payment } from "@/lib/t
 
 export type HomeViewProps = {
   /** id не передається в попередньому перегляді — тоді під'їзд лише показується */
-  apartment: { id?: string; apartment_number: string; resident_surname: string; entrance?: number | null };
+  apartment: { id?: string; apartment_number: string; resident_surname: string | null; entrance?: number | null };
   period: BillingPeriod | null;
   isAdmin: boolean;
   otherEnabled: boolean;
@@ -213,7 +213,7 @@ function ApartmentHeading({ apartment }: { apartment: HomeViewProps["apartment"]
   return (
     <div>
       <h1 className="font-display text-[28px] font-bold leading-tight sm:text-[32px]">Квартира №{apartment.apartment_number}</h1>
-      <p className="text-ink-soft">{apartment.resident_surname}</p>
+      {apartment.resident_surname && <p className="text-ink-soft">{apartment.resident_surname}</p>}
       <EntrancePicker key={apartment.entrance ?? "none"} apartmentId={apartment.id} entrance={apartment.entrance ?? null} />
     </div>
   );

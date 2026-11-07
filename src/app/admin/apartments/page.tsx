@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Квартири та мешканц
 type AptRow = {
   id: string;
   apartment_number: string;
-  resident_surname: string;
+  resident_surname: string | null;
   is_active: boolean;
   registration_status: string;
   has_active_code: boolean;
@@ -32,7 +32,7 @@ type UserRow = {
   profile_id: string;
   auth_user_id: string;
   email: string;
-  surname: string;
+  surname: string | null;
   apartment_number: string | null;
   role: "resident" | "admin";
   is_primary: boolean;
@@ -90,7 +90,7 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Кв.</th>
                     <th className="px-3 py-2.5 font-medium">Під&apos;їзд</th>
-                    <th className="px-3 py-2.5 font-medium">Прізвище</th>
+                    <th className="px-3 py-2.5 font-medium">Прізвище та ім&apos;я</th>
                     <th className="px-3 py-2.5 font-medium">Доступ</th>
                     <th className="px-3 py-2.5 font-medium">Згода на обробку ПД</th>
                     <th className="px-3 py-2.5 text-right font-medium">Початковий показник</th>
@@ -105,7 +105,7 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
                         <EntranceSelect key={`${a.id}-${entrances.get(a.id) ?? ""}`} apartmentId={a.id} number={a.apartment_number} entrance={entrances.get(a.id) ?? null} />
                       </td>
                       <td className="px-3 py-2.5">
-                        {a.resident_surname}
+                        {a.resident_surname ?? <span className="text-ink-soft">—</span>}
                         {!a.is_active && <span className="ml-2"><Tag>Неактивна</Tag></span>}
                       </td>
                       <td className="px-3 py-2.5">
@@ -168,7 +168,7 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
               <thead className="bg-casing text-left text-sm text-ink-soft">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Кв.</th>
-                  <th className="px-3 py-2.5 font-medium">Прізвище</th>
+                  <th className="px-3 py-2.5 font-medium">Прізвище та ім&apos;я</th>
                   <th className="px-3 py-2.5 font-medium">Пошта</th>
                   <th className="px-3 py-2.5 font-medium">Роль</th>
                   <th className="px-3 py-2.5 font-medium">Останній вхід</th>
@@ -180,7 +180,7 @@ export default async function AdminApartmentsPage({ searchParams }: PageProps<"/
                   <tr key={u.profile_id} className={`border-t border-line ${u.is_active ? "" : "text-ink-soft"}`}>
                     <td className="px-4 py-2.5 font-semibold">{u.apartment_number ?? "—"}</td>
                     <td className="px-3 py-2.5">
-                      {u.surname}
+                      {u.surname ?? <span className="text-ink-soft">—</span>}
                       {!u.is_primary && u.role === "resident" && <span className="ml-1 text-sm text-ink-soft">(додатковий)</span>}
                     </td>
                     <td className="px-3 py-2.5">

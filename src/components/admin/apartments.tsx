@@ -19,7 +19,7 @@ import { useAction } from "@/components/admin/use-action";
 export type ApartmentRow = {
   id: string;
   apartment_number: string;
-  resident_surname: string;
+  resident_surname: string | null;
   is_active: boolean;
   initial_reading: number | string | null;
   initial_reading_date: string | null;
@@ -76,7 +76,7 @@ export function ApartmentEditor({ apartment }: { apartment?: ApartmentRow }) {
             <Field label="Номер" htmlFor="apt-num" error={fieldErrors.apartmentNumber}>
               <Input id="apt-num" value={form.apartmentNumber} onChange={(e) => set("apartmentNumber", e.target.value)} />
             </Field>
-            <Field label="Прізвище мешканця" htmlFor="apt-surname" error={fieldErrors.residentSurname}>
+            <Field label="Прізвище та ім'я (необов'язково)" htmlFor="apt-surname" error={fieldErrors.residentSurname}>
               <Input id="apt-surname" value={form.residentSurname} onChange={(e) => set("residentSurname", e.target.value)} />
             </Field>
           </div>
@@ -204,7 +204,7 @@ function downloadCsv(name: string, rows: string[][]) {
 }
 
 export function BulkCodes() {
-  const [result, setResult] = useState<{ codes: { apartment_number: string; resident_surname: string; code: string }[]; failed: string[] } | null>(null);
+  const [result, setResult] = useState<{ codes: { apartment_number: string; resident_surname: string | null; code: string }[]; failed: string[] } | null>(null);
   const { run, pending } = useAction();
   return (
     <div className="flex flex-col gap-3">
@@ -225,8 +225,8 @@ export function BulkCodes() {
             size="sm"
             onClick={() =>
               downloadCsv("kody-dostupu.csv", [
-                ["Квартира", "Прізвище", "Код доступу"],
-                ...result.codes.map((c) => [c.apartment_number, c.resident_surname, c.code]),
+                ["Квартира", "Прізвище та ім'я", "Код доступу"],
+                ...result.codes.map((c) => [c.apartment_number, c.resident_surname ?? "", c.code]),
               ])
             }
           >
@@ -253,7 +253,7 @@ export function ImportApartments() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[15px] text-ink-soft">
-        CSV-файл або текст: номер квартири; прізвище; початковий показник (необов&apos;язково). Наявні квартири оновлюються.
+        CSV-файл або текст: номер квартири; прізвище та ім&apos;я (необов&apos;язково); початковий показник (необов&apos;язково). Наявні квартири оновлюються, порожнє ім&apos;я не стирає вже вказане.
       </p>
       <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-line px-3 py-2 text-[15px] font-semibold hover:bg-face-soft">
         <Upload className="size-4" aria-hidden />
@@ -285,7 +285,7 @@ export function ErasePersonalData({ apartmentId, number }: { apartmentId: string
     <ConfirmDialog
       trigger={<Button size="sm" variant="ghost" className="text-danger">Видалити ПД</Button>}
       title={`Видалити персональні дані квартири №${number}?`}
-      description="Прізвище й під'їзд буде видалено (зокрема з журналу змін), згоду відкликано, обліковий запис квартири деактивовано. Розрахунки лишаються за номером квартири. Дію не можна скасувати."
+      description="Прізвище та ім'я буде видалено (зокрема з журналу змін), згоду відкликано, обліковий запис квартири деактивовано. Облікові дані квартири лишаються. Дію не можна скасувати."
       confirmLabel="Видалити дані"
       tone="danger"
       onConfirm={() => {

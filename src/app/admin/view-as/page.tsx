@@ -10,7 +10,7 @@ export default async function ViewAsPage() {
   await requireAdmin();
   const supabase = await createClient();
   const { data } = await supabase.from("apartments").select("id, apartment_number, resident_surname, sort_num, is_active").order("sort_num").order("apartment_number");
-  const apts = (data ?? []) as { id: string; apartment_number: string; resident_surname: string; is_active: boolean }[];
+  const apts = (data ?? []) as { id: string; apartment_number: string; resident_surname: string | null; is_active: boolean }[];
   return (
     <>
       <PageHeader
@@ -24,7 +24,7 @@ export default async function ViewAsPage() {
             <Select name="apartmentId" required>
               {apts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  №{a.apartment_number}, {a.resident_surname}{a.is_active ? "" : " (неактивна)"}
+                  №{a.apartment_number}{a.resident_surname ? `, ${a.resident_surname}` : ""}{a.is_active ? "" : " (неактивна)"}
                 </option>
               ))}
             </Select>

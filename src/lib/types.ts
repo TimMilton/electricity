@@ -14,7 +14,8 @@ export type Profile = {
   id: string;
   auth_user_id: string;
   apartment_id: string | null;
-  surname: string;
+  /** Прізвище та ім'я — необов'язкові */
+  surname: string | null;
   role: AppRole;
   is_primary: boolean;
   is_active: boolean;
@@ -23,7 +24,8 @@ export type Profile = {
 export type Apartment = {
   id: string;
   apartment_number: string;
-  resident_surname: string;
+  /** Прізвище та ім'я — необов'язкові */
+  resident_surname: string | null;
   is_active: boolean;
   registration_status: RegistrationStatus;
   /** Під'їзд: 1, 2 або 3; null — ще не вказано */
@@ -134,7 +136,7 @@ export type AppSettings = {
 export type PeriodTableRow = {
   apartment_id: string;
   apartment_number: string;
-  resident_surname: string;
+  resident_surname: string | null;
   entrance: number | null;
   has_reading: boolean;
   previous_reading: Num | null;

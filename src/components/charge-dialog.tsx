@@ -71,7 +71,7 @@ export function ChargeDialog({
     >
       <DialogContent
         title={row ? `Квартира №${row.apartment_number}` : "Нарахування"}
-        description={row ? `${row.resident_surname}, ${details!.periodLabel.toLowerCase()}` : undefined}
+        description={row ? [row.resident_surname, details!.periodLabel.toLowerCase()].filter(Boolean).join(", ") : undefined}
       >
         {loading && <p className="py-6 text-center text-ink-soft">Завантаження…</p>}
         {error && <Notice tone="danger">{error}</Notice>}
